@@ -2,7 +2,7 @@
 
 업소용 냉장고를 브라우저에서 3D로 설계하고 살펴보는 웹앱입니다. 형태와 치수만 넣으면 부품 배치와 냉매 배관을 자동으로 만들고 간섭을 검사하며, 도면·부품 카탈로그·CAD 파일로 다듬을 수 있습니다. 실제 제품 재구성(HR24B, T-19-HC)과 냉동 사이클 시뮬레이션도 들어 있습니다.
 
-**사이트:** https://jj-dot-eng.github.io/refrigerator-lab/
+**사이트:** https://skynaet.github.io/refrigerator-lab/
 
 ## 화면
 
@@ -17,14 +17,14 @@
 
 ## 사용하기
 
-설치할 필요 없이 **https://jj-dot-eng.github.io/refrigerator-lab/** 에 접속하면 됩니다. PC 브라우저(Chrome, Edge 등)를 권장합니다.
+설치할 필요 없이 **https://skynaet.github.io/refrigerator-lab/** 에 접속하면 됩니다. PC 브라우저(Chrome, Edge 등)를 권장합니다.
 
 ## 직접 실행 (개발용)
 
 코드를 수정하거나 내 PC에서 돌리려면 Git과 Node.js 22.13 이상이 필요합니다.
 
 ```bash
-git clone https://github.com/JJ-dot-eng/refrigerator-lab.git
+git clone https://github.com/skynaet/refrigerator-lab.git
 cd refrigerator-lab/refrigerator
 npm install
 npm run dev

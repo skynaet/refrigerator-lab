@@ -23,8 +23,8 @@ jobs:
     env:
       PAGES_BASE_PATH: /${{ github.event.repository.name }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -38,7 +38,7 @@ jobs:
           cp dist/client/404.html "$site/404.html"
           touch "$site/.nojekyll"
           echo "SITE_DIR=refrigerator/$site" >> "$GITHUB_ENV"
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: ${{ env.SITE_DIR }}
 
@@ -50,4 +50,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
