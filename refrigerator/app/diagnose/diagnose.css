@@ -1,0 +1,36 @@
+.diagnose-app header{flex-wrap:wrap;gap:16px}
+.diagnose-app header nav{flex-direction:row;flex-wrap:wrap;gap:8px 16px}
+.diagnose-app header nav a{display:inline-flex;align-items:center;min-height:44px}
+.diagnose-content{width:100%;max-width:960px;margin:auto;padding:20px 16px 40px;overflow-wrap:anywhere}
+.diagnose-disclaimer,.diagnose-basics{color:#abc4cd;margin-bottom:18px}
+.diagnose-basics{border:1px solid #37515d;border-radius:6px;padding:12px}
+.diagnose-basics summary{cursor:pointer;min-height:32px;color:#8edbc9}
+.diagnose-basics p{margin-top:10px}
+.diagnose-progress{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:24px 0 16px}
+.diagnose-app .diagnose-progress h2{font-size:20px;margin:0}
+.diagnose-progress strong{color:#a0f5df;font-variant-numeric:tabular-nums}
+.diagnose-grid{display:grid;gap:16px}
+.diagnose-panel{min-width:0;border:1px solid #37515d;border-radius:8px;background:#15242d;padding:16px}
+.diagnose-readings{table-layout:fixed;font-size:14px}
+.diagnose-readings caption{text-align:left;font-size:16px;font-weight:600;color:#dce9ec;margin-bottom:10px}
+.diagnose-readings th,.diagnose-readings td{padding:10px 4px;overflow-wrap:anywhere}
+.diagnose-readings th{color:#c4d9df}
+.diagnose-readings th:last-child,.diagnose-readings td{text-align:right;width:86px}
+.diagnose-badge{display:inline-block;border:1px solid;border-radius:20px;padding:3px 10px;white-space:nowrap;font-weight:600}
+.diagnose-high{background:#493124;color:#ffd1a5;border-color:#a37148}
+.diagnose-low{background:#183649;color:#a9ddff;border-color:#467d9d}
+.diagnose-normal{background:#203d35;color:#a4ecd1;border-color:#508b78}
+.diagnose-panel>h3{margin-top:22px;font-size:15px}
+.diagnose-panel ul{padding-left:20px;margin:10px 0 0;color:#abc4cd;list-style:disc}
+.diagnose-panel li+li{margin-top:8px}
+.diagnose-choices{display:grid;gap:10px}
+.diagnose-app .diagnose-choices button{width:100%;min-height:52px;padding:12px;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.diagnose-app .diagnose-choices button:disabled{opacity:1;cursor:default}
+.diagnose-app .diagnose-choices .diagnose-choice-correct{border-color:#8be5ce;color:#b7ffe8;background:#254b40}
+.diagnose-app .diagnose-choices .diagnose-choice-wrong{border-color:#e0a286;color:#ffd0b9;background:#493027}
+.diagnose-result{border-top:1px solid #37515d;margin-top:22px;padding-top:18px}
+.diagnose-result h3{font-size:20px;color:#e8f2f3}
+.diagnose-result p{margin-top:12px}
+.diagnose-app .diagnose-next{width:100%;min-height:48px;margin-top:20px;background:#8be5ce;color:#102c28;font-weight:700}
+.diagnose-app summary:focus-visible,.diagnose-result:focus,.diagnose-progress h2:focus{outline:2px solid #99dfca;outline-offset:4px}
+@media(min-width:760px){.diagnose-grid{grid-template-columns:1fr 1fr}.diagnose-content{padding:28px 24px 48px}}

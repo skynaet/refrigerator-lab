@@ -3,3 +3,5 @@
 .circuit-visual .hr-scene{height:100%;width:100%}
 .circuit-visual .hr-scene canvas{display:block;touch-action:none}
 .circuit-visual .hr-error{position:absolute;top:35%;left:12%;right:12%;padding:20px;background:#56372c;color:white}
+
+.ref-header{flex-wrap:wrap;height:auto;min-height:95px;gap:12px}.ref-header-actions{flex-wrap:wrap}
