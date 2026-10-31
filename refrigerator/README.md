@@ -5,6 +5,7 @@
 - [사양서 기반 생성기 (`/new`, `/models`, `/editor`)](#사양서-기반-생성기-new-models-editor)
 - [HR24B (`/`)](#hoshizaki-hr24b-)
 - [True T-19-HC (`/reference`)](#true-t-19-hc-reference)
+- 냉매 회로 고장 진단 연습 (`/diagnose`): 모세관 방식의 대표 고장 6가지, 운전 경향·관찰 단서·해설·점수. 제조사 서비스 데이터가 아닌 교과서 수준의 연습입니다.
 - [MONO 120 (`/lab`)](#mono-120-lab)
 - [제조사 문서](#제조사-문서-저장소-미포함)
 - [배포](#github-pages)

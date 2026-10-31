@@ -42,7 +42,7 @@ PR을 올리기 전에 위 명령이 모두 통과해야 합니다. 같은 검�
 
 - 작업은 항상 **새 브랜치**에서 하고 **PR**로 올립니다.
 - **main에 직접 push하지 않습니다.** main push가 곧 공개 GitHub Pages 배포입니다.
-- 봇은 PR을 merge하거나 force push하지 않습니다. merge는 사용자가 합니다.
+- 자동 테스트(npm test·lint·tsc·build)가 모두 통과하면 봇이 squash 머지하고 브랜치를 삭제합니다. main 직접 push와 force push는 금지합니다.
 - 한 번에 **AI 하나만** 이 저장소에서 작업합니다.
 - 작업을 마치면 `HANDOFF.md`를 새 내용으로 **덮어써** 다음 작업자에게 인계합니다.
 - 답변과 문서는 **한국어**로 씁니다.

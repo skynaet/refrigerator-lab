@@ -99,7 +99,7 @@ export default function EditorPage(){
  const raw=rawDraft??(spec?JSON.stringify(spec,null,2):'');
  function applyRaw(){try{const s=JSON.parse(raw) as Spec;setHistory(h=>spec?[...h.slice(-49),spec]:h);setSpec(s);setRawDraft(null);setRawError('');}catch(e){setRawError(`JSON 형식 오류: ${(e as Error).message}`);}}
 
- return <main className="hr-app"><header><div><small>SPEC EDITOR</small><h1>사양서 <b>편집기</b></h1></div><nav><Link href="/new">새로 만들기</Link><Link href="/models">모델 목록</Link><Link href="/">HR24B 도면 대조</Link></nav></header>
+ return <main className="hr-app"><header><div><small>SPEC EDITOR</small><h1>사양서 <b>편집기</b></h1></div><nav><Link href="/new">새로 만들기</Link><Link href="/models">모델 목록</Link><Link href="/">HR24B 도면 대조</Link><Link href="/diagnose">고장 진단 연습</Link></nav></header>
  <div className="hr-summary">값을 바꾸면 0.25초 뒤 브라우저에서 모델을 다시 생성하고 검사합니다<span>작업 내용은 이 브라우저에 자동 저장됩니다</span><b>{spec?.meta.model}</b></div>
  <div className="hr-work"><aside className="hr-parts"><h2>기준 모델</h2>
   <select className="ed-base" aria-label="기준 모델" value={baseId} onChange={e=>setBaseId(e.target.value)}>{index.map(m=><option key={m.id} value={m.id}>{m.model}</option>)}</select>
