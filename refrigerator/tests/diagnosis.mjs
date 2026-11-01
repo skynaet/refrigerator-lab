@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
-import {PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, explainOthers, judge} from '../lib/diagnosis.ts';
+import {CIRCUIT_PARTS, PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, explainOthers, judge} from '../lib/diagnosis.ts';
 
 const scenarios = listScenarios();
 const originalIds = scenarios.map(s => s.id);
 const directions = new Set(['높음', '낮음', '정상']);
+const circuitPartIds = new Set(Object.keys(CIRCUIT_PARTS));
+assert.ok(circuitPartIds.size > 0);
+assert.ok(Object.values(CIRCUIT_PARTS).every(label => typeof label === 'string' && label.trim()), '회로 부품 이름은 비어 있지 않음');
 assert.equal(scenarios.length, 6, '추가 후보는 지표 불확실성·기존 결빙과의 중복으로 제외하여 6개 유지');
 assert.equal(PARAMETERS.length, 7);
 assert.equal(new Set(scenarios.map(s => s.id)).size, scenarios.length, '문제 ID 중복 금지');
@@ -14,6 +17,14 @@ for (const scenario of scenarios) {
   for (const parameter of PARAMETERS) assert.ok(directions.has(scenario.symptoms[parameter]), `${scenario.id}: ${parameter}`);
   assert.ok(scenario.explanation.trim(), '빈 해설 금지');
   assert.ok(scenario.clues.length > 0 && scenario.clues.every(clue => typeof clue === 'string' && clue.trim()), '빈 단서 금지');
+  const {parts, description} = scenario.circuitLocation;
+  assert.ok(parts.length > 0, `${scenario.id}: 회로 강조 위치가 하나 이상`);
+  assert.equal(new Set(parts).size, parts.length, `${scenario.id}: 회로 강조 위치 중복 금지`);
+  for (const part of parts) assert.ok(circuitPartIds.has(part), `${scenario.id}: 알 수 없는 회로 부품 ${part}`);
+  assert.ok(typeof description === 'string' && description.trim(), `${scenario.id}: 회로 강조 설명 필수`);
+  assert.ok(scenario.fieldChecks.length >= 3 && scenario.fieldChecks.length <= 5, `${scenario.id}: 현장 확인 순서는 3~5개`);
+  assert.ok(scenario.fieldChecks.every(check => typeof check === 'string' && check.trim()), `${scenario.id}: 빈 현장 확인 항목 금지`);
+  assert.ok(typeof scenario.safetyNote === 'string' && scenario.safetyNote.trim(), `${scenario.id}: 안전 안내 필수`);
   // 객체 속성 순서가 달라도 같은 증상은 같은 서명을 얻는다.
   assert.equal(symptomKey(Object.fromEntries(Object.entries(scenario.symptoms).reverse())), symptomKey(scenario.symptoms));
   for (const answer of scenarios) {
@@ -72,4 +83,4 @@ for (const invalid of [-0.1, 1, NaN, Infinity]) {
   assert.throws(() => pickScenario(() => invalid), RangeError);
   assert.throws(() => buildChoices(() => invalid), RangeError);
 }
-console.log('진단 연습 검사 통과: 증상 완전성·고유성, 모든 정오답, 오답별 차이 항목·방향, 잘못된 ID, 난수 주입, 연속 중복 방지, 보기 구성.');
+console.log('진단 연습 검사 통과: 증상 완전성·고유성, 회로 위치·현장 확인 순서·안전 안내, 모든 정오답, 오답별 차이 항목·방향, 잘못된 ID, 난수 주입, 연속 중복 방지, 보기 구성.');
