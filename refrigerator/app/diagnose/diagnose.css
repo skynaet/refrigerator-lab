@@ -35,6 +35,22 @@
 .diagnose-alternatives{margin-top:16px}
 .diagnose-alternatives section{border-top:1px solid #37515d;padding-top:12px;margin-top:16px}
 .diagnose-alternatives h4{font-size:14px;color:#c4d9df}
+.diagnose-field-guide{margin-top:20px;border-top:1px solid #37515d;padding-top:16px}
+.diagnose-field-guide h4{font-size:16px;color:#e8f2f3}
+.diagnose-circuit{margin:12px 0}
+.diagnose-circuit svg{display:block;width:100%;max-width:340px;height:auto;margin:0 auto}
+.diagnose-circuit-part>rect,.diagnose-circuit-part>circle{fill:#1c303c;stroke:#7795a2;stroke-width:1.5}
+.diagnose-circuit-part>text{fill:#dce9ec;font-size:14px;text-anchor:middle}
+.diagnose-circuit-part.diagnose-circuit-highlight>rect,.diagnose-circuit-part.diagnose-circuit-highlight>circle{fill:#493124;stroke:#ffd1a5;stroke-width:3}
+.diagnose-circuit-flow{fill:none;stroke:#abc4cd;stroke-width:2}
+.diagnose-circuit-flow.diagnose-circuit-highlight{stroke:#ffd1a5;stroke-width:3}
+.diagnose-circuit-part>.diagnose-circuit-symbol{fill:none;stroke:currentColor;stroke-width:2;color:#abc4cd}
+.diagnose-circuit-highlight>.diagnose-circuit-symbol{color:#ffd1a5}
+.diagnose-circuit figcaption{font-size:14px;color:#c4d9df}
+.diagnose-circuit figcaption strong{color:#ffd1a5}
+.diagnose-circuit-link{display:inline-flex;align-items:center;min-height:44px;margin-bottom:12px}
+.diagnose-field-guide ol{list-style:decimal;margin:12px 0;padding-left:24px;color:#c4d9df}
+.diagnose-field-guide .diagnose-safety{border-left:3px solid #ffd1a5;padding:8px 12px;color:#ffd1a5}
 .diagnose-app .diagnose-next{width:100%;min-height:48px;margin-top:20px;background:#8be5ce;color:#102c28;font-weight:700}
 .diagnose-app summary:focus-visible,.diagnose-result:focus,.diagnose-progress h2:focus{outline:2px solid #99dfca;outline-offset:4px}
 @media(min-width:760px){.diagnose-grid{grid-template-columns:1fr 1fr}.diagnose-content{padding:28px 24px 48px}}

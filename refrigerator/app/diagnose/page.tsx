@@ -4,6 +4,7 @@ import {useEffect, useRef, useState} from 'react';
 import Link from 'next/link';
 import {PARAMETERS, buildChoices, explainOthers, judge, pickScenario} from '@/lib/diagnosis';
 import type {Choice, Direction, Scenario} from '@/lib/diagnosis';
+import CircuitDiagram from './circuit-diagram';
 import '../hr24/style.css';
 import './diagnose.css';
 
@@ -53,10 +54,11 @@ export default function DiagnosePage() {
 
   const result = practice?.answerId ? judge(practice.scenario.id, practice.answerId) : null;
 
+  // 3D 화면 링크의 자동 미리 불러오기가 진단 화면에서 three.js를 내려받지 않도록 한다.
   return <main className="hr-app diagnose-app">
     <header>
       <div><small>냉동 사이클 학습</small><h1>냉매 회로 <b>고장 진단 연습</b></h1></div>
-      <nav aria-label="화면 이동"><Link href="/">HR24B 홈</Link><Link href="/models">모델 목록</Link><Link href="/reference">T-19-HC 시뮬레이터</Link></nav>
+      <nav aria-label="화면 이동"><Link href="/" prefetch={false}>HR24B 홈</Link><Link href="/models" prefetch={false}>모델 목록</Link><Link href="/reference" prefetch={false}>T-19-HC 시뮬레이터</Link></nav>
     </header>
     <div className="diagnose-content">
       <p className="diagnose-disclaimer">교과서 수준의 모세관 방식 냉동 사이클 연습입니다. 제조사 서비스 데이터나 특정 모델의 실측값이 아닙니다.</p>
@@ -101,6 +103,15 @@ export default function DiagnosePage() {
                 <h3>{result.correct ? '정답입니다' : '오답입니다'}</h3>
                 <p><strong>정답: {result.correctName}</strong></p>
                 <p>{result.explanation}</p>
+                <section className="diagnose-field-guide" aria-label="고장 위치와 현장 확인 순서">
+                  <h4>회로에서 보는 고장 위치</h4>
+                  <CircuitDiagram location={practice.scenario.circuitLocation}/>
+                  <Link className="diagnose-circuit-link" href="/reference" prefetch={false}>3D 배관에서 보기</Link>
+                  <h4>현장 확인 순서</h4>
+                  <p>운전 조건을 맞춰 여러 단서를 함께 확인하세요. 지표 하나만으로 고장을 확정하지 않습니다.</p>
+                  <ol>{practice.scenario.fieldChecks.map(check => <li key={check}>{check}</li>)}</ol>
+                  <p className="diagnose-safety"><strong>안전:</strong> {practice.scenario.safetyNote}</p>
+                </section>
                 <details className="diagnose-alternatives">
                   <summary>다른 보기가 정답이 아닌 이유</summary>
                   <p>이 연습의 보기별 가정과 다른 항목만 비교합니다. 실제 경향은 운전 조건에 따라 달라질 수 있습니다.</p>

@@ -11,12 +11,32 @@ export const PARAMETERS = [
 ] as const;
 export type Parameter = (typeof PARAMETERS)[number];
 export type Symptoms = Readonly<Record<Parameter, Direction>>;
+export const CIRCUIT_PARTS = {
+  compressor: '압축기',
+  condenser: '응축기',
+  'condenser-fan': '응축기 팬',
+  'drier-liquid-line': '드라이어·액관',
+  capillary: '모세관',
+  evaporator: '증발기',
+  'evaporator-fan': '증발기 팬',
+  'suction-line': '흡입관',
+  joints: '배관 이음부',
+} as const;
+export type CircuitPartId = keyof typeof CIRCUIT_PARTS;
+export type CircuitLocation = {
+  readonly parts: readonly CircuitPartId[];
+  readonly description: string;
+};
+const fieldSafetyNote = 'R290은 가연성 냉매입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요. 팬·배선의 접촉 점검 전에는 전원을 차단하세요.';
 export type Scenario = {
   readonly id: string;
   readonly name: string;
   readonly symptoms: Symptoms;
   readonly clues: readonly string[];
   readonly explanation: string;
+  readonly circuitLocation: CircuitLocation;
+  readonly fieldChecks: readonly string[];
+  readonly safetyNote: string;
 };
 export type Choice = Pick<Scenario, 'id' | 'name'>;
 export type AlternativeExplanation = Choice & {
@@ -34,6 +54,17 @@ export type RandomSource = () => number;
 const scenarios: readonly Scenario[] = [
   {
     id: 'undercharge', name: '냉매 부족(누설)',
+    circuitLocation: {
+      parts: ['compressor', 'condenser', 'drier-liquid-line', 'capillary', 'evaporator', 'suction-line', 'joints'],
+      description: '냉매 부족은 회로 전체에 영향을 줍니다. 누설 지점은 이음부 등을 따로 확인해야 하며, 그림의 원은 이음부 위치의 예시입니다.',
+    },
+    fieldChecks: [
+      '냉매 종류와 정격 충전량, 최근 보충·수리 이력을 명판과 작업 기록으로 확인합니다.',
+      '배관 이음부의 오일 흔적을 살피고, 해당 냉매용 누설 검지기와 누설 검사용 발포액으로 누설 여부를 확인합니다.',
+      '증발기 입구에만 성에가 생기는지 확인하고, 팬과 통풍 상태도 함께 확인합니다.',
+      '제조사 절차에 따라 측정한 압력·배관 온도로 과열도와 과냉도를 확인하고, 드라이어의 국부 온도 강하와 비교해 막힘 가능성을 살핍니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '낮음', '고압(토출/응축) 압력': '낮음',
       '과열도': '높음', '과냉도': '낮음', '압축기 전류': '낮음',
@@ -44,6 +75,17 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'overcharge', name: '냉매 과충전',
+    circuitLocation: {
+      parts: ['condenser', 'drier-liquid-line'],
+      description: '응축기와 액관 쪽에 액냉매가 쌓이는 구간입니다. 방열 불량과 구별해 확인합니다.',
+    },
+    fieldChecks: [
+      '명판의 냉매 종류·정격 충전량과 최근 충전 작업의 계량 기록을 대조합니다.',
+      '응축기 오염, 팬 운전, 기계실 통풍을 확인해 방열 불량부터 구별합니다.',
+      '운전이 안정된 뒤 제조사 절차에 따라 고압과 액관 온도로 과냉도를 확인합니다.',
+      '흡입관의 결로 범위와 과열도를 확인하고, 압축기 전류를 명판의 정격 운전전류(RLA 등) 및 운전 조건과 함께 비교합니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '높음', '고압(토출/응축) 압력': '높음',
       '과열도': '낮음', '과냉도': '높음', '압축기 전류': '높음',
@@ -54,6 +96,17 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'restriction', name: '모세관/드라이어 막힘(제한)',
+    circuitLocation: {
+      parts: ['drier-liquid-line', 'capillary'],
+      description: '드라이어·액관과 모세관의 제한 가능 구간입니다. 모세관 자체의 정상적인 온도 강하와 구별합니다.',
+    },
+    fieldChecks: [
+      '액관과 모세관에 눌림·꺾임이 있는지 살피고, 드라이어 교환 등 최근 수리 이력을 확인합니다.',
+      '운전 중 드라이어 입구·출구 온도를 같은 방법으로 비교하고, 출구의 국부 결로·성에를 확인합니다.',
+      '모세관의 정상적인 팽창·냉각과 달리 특정 지점에만 온도 변화나 성에가 집중되는지 확인합니다.',
+      '제조사 절차에 따라 과열도·과냉도를 확인하고 누설 흔적도 살펴, 냉매 부족과 구별합니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '낮음', '고압(토출/응축) 압력': '낮음',
       '과열도': '높음', '과냉도': '높음', '압축기 전류': '낮음',
@@ -64,6 +117,17 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'condenser-airflow', name: '응축기 오염 또는 응축기 팬 고장',
+    circuitLocation: {
+      parts: ['condenser', 'condenser-fan'],
+      description: '응축기 코일과 팬의 방열 경로를 확인합니다.',
+    },
+    fieldChecks: [
+      '응축기 핀의 먼지·막힘과 흡입·배출구 주변의 장애물을 확인합니다.',
+      '팬에 손대지 않고 회전·풍량·이상음을 관찰하고, 전원 차단 후 날개와 배선 상태를 확인합니다.',
+      '기계실에 더운 공기가 재순환하는지, 주위 온도와 설치 통풍 조건이 제조사 기준에 맞는지 확인합니다.',
+      '제조사 절차에 따라 고압·응축 온도와 압축기 전류를 확인하고, 명판의 정격 운전전류(RLA 등)와 운전 조건을 함께 비교합니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '높음', '고압(토출/응축) 압력': '높음',
       '과열도': '정상', '과냉도': '높음', '압축기 전류': '높음',
@@ -74,6 +138,17 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'evaporator-airflow', name: '증발기 팬 고장 또는 증발기 결빙',
+    circuitLocation: {
+      parts: ['evaporator', 'evaporator-fan'],
+      description: '증발기 코일과 팬의 공기 순환 경로를 확인합니다. 결빙의 원인은 추가로 구별해야 합니다.',
+    },
+    fieldChecks: [
+      '문 스위치·제상 상태에 따른 팬 정지 조건을 확인한 뒤, 팬 회전과 고내 토출 풍량을 관찰합니다.',
+      '전원 차단 후 증발기 성에가 입구 일부인지 전체의 두꺼운 결빙인지 살피고, 날개의 얼음 간섭도 확인합니다.',
+      '적재물의 흡입·토출구 차단과 도어 패킹 틈새를 확인합니다.',
+      '제조사 절차에 따라 제상 운전 이력과 히터·센서·배수 상태를 확인해 결빙 원인을 구별합니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '낮음', '고압(토출/응축) 압력': '낮음',
       '과열도': '낮음', '과냉도': '정상', '압축기 전류': '낮음',
@@ -84,6 +159,17 @@ const scenarios: readonly Scenario[] = [
   },
   {
     id: 'compressor-inefficiency', name: '압축기 효율 저하',
+    circuitLocation: {
+      parts: ['compressor'],
+      description: '압축기의 흡입·압축 능력을 확인합니다. 전류 하나만으로 내부 고장을 확정하지 않습니다.',
+    },
+    fieldChecks: [
+      '압축기가 실제로 연속 운전하는지 확인하고, 응축기·증발기 팬과 통풍 상태를 먼저 확인합니다.',
+      '제조사 절차에 따라 운전 중 흡입·토출 압력 차이와 배관 온도를 확인합니다. 정지 후 압력 평형만으로 밸브 누설을 단정하지 않습니다.',
+      '공급 전압과 운전 전류를 제조사 절차에 따라 확인하고, 명판의 정격 운전전류(RLA 등) 및 부하 조건과 함께 비교합니다.',
+      '누설 흔적과 드라이어의 국부 온도 강하를 확인해 냉매 부족·막힘 등 다른 원인을 구별합니다.',
+    ],
+    safetyNote: fieldSafetyNote,
     symptoms: {
       '저압(흡입) 압력': '높음', '고압(토출/응축) 압력': '낮음',
       '과열도': '정상', '과냉도': '낮음', '압축기 전류': '낮음',
