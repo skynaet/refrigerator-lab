@@ -2,7 +2,7 @@
 
 import {useEffect, useRef, useState} from 'react';
 import Link from 'next/link';
-import {PARAMETERS, buildChoices, judge, pickScenario} from '@/lib/diagnosis';
+import {PARAMETERS, buildChoices, explainOthers, judge, pickScenario} from '@/lib/diagnosis';
 import type {Choice, Direction, Scenario} from '@/lib/diagnosis';
 import '../hr24/style.css';
 import './diagnose.css';
@@ -101,6 +101,16 @@ export default function DiagnosePage() {
                 <h3>{result.correct ? '정답입니다' : '오답입니다'}</h3>
                 <p><strong>정답: {result.correctName}</strong></p>
                 <p>{result.explanation}</p>
+                <details className="diagnose-alternatives">
+                  <summary>다른 보기가 정답이 아닌 이유</summary>
+                  <p>이 연습의 보기별 가정과 다른 항목만 비교합니다. 실제 경향은 운전 조건에 따라 달라질 수 있습니다.</p>
+                  {explainOthers(result.correctId).map(alternative => <section key={alternative.id}>
+                    <h4>{alternative.name}</h4>
+                    <ul>{alternative.differences.map(({parameter, expected, actual}) => <li key={parameter}>
+                      {parameter}: 보기 <strong>{expected}</strong> · 이 문제 <strong>{actual}</strong>
+                    </li>)}</ul>
+                  </section>)}
+                </details>
                 <button type="button" className="diagnose-next" onClick={nextQuestion}>다음 문제</button>
               </div>}
             </div>
