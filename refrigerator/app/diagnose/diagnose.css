@@ -10,13 +10,27 @@
 .diagnose-progress{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:24px 0 16px}
 .diagnose-app .diagnose-progress h2{font-size:20px;margin:0}
 .diagnose-progress strong{color:#a0f5df;font-variant-numeric:tabular-nums}
+.diagnose-score{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:14px;border:1px solid #37515d;border-radius:8px}
+.diagnose-score strong{color:#a0f5df;font-variant-numeric:tabular-nums}
+.diagnose-app .diagnose-score button{min-height:44px;white-space:normal;overflow-wrap:anywhere}
+.diagnose-score button:disabled{opacity:.6;cursor:default}
+.diagnose-storage-note{flex-basis:100%;font-size:12px;color:#abc4cd}
 .diagnose-grid{display:grid;gap:16px}
 .diagnose-panel{min-width:0;border:1px solid #37515d;border-radius:8px;background:#15242d;padding:16px}
-.diagnose-readings{table-layout:fixed;font-size:14px}
-.diagnose-readings caption{text-align:left;font-size:16px;font-weight:600;color:#dce9ec;margin-bottom:10px}
-.diagnose-readings th,.diagnose-readings td{padding:10px 4px;overflow-wrap:anywhere}
-.diagnose-readings th{color:#c4d9df}
-.diagnose-readings th:last-child,.diagnose-readings td{text-align:right;width:86px}
+.diagnose-check-help{color:#abc4cd;margin:10px 0 16px}
+.diagnose-checks{display:grid;gap:10px}
+.diagnose-check{min-width:0;border:1px solid #37515d;border-radius:6px;overflow-wrap:anywhere}
+.diagnose-app .diagnose-check button{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:48px;border:0;white-space:normal;text-align:left;overflow-wrap:anywhere}
+.diagnose-check button span:first-child{min-width:0}
+.diagnose-check button span:last-child{flex-shrink:0;font-size:12px;color:#a0f5df}
+.diagnose-app .diagnose-check button:disabled{opacity:1;cursor:default}
+.diagnose-check>div{padding:12px}
+.diagnose-key-check{border-color:#d1a273}
+.diagnose-key-check button span:last-child{color:#ffd1a5}
+.diagnose-check-status{display:block;font-size:12px;color:#c4d9df;margin-top:8px}
+.diagnose-key-summary{border:1px solid #d1a273;border-radius:6px;padding:12px;margin-top:20px}
+.diagnose-key-summary h4{font-size:16px;color:#ffd1a5}
+.diagnose-key-summary strong{color:#dce9ec}
 .diagnose-badge{display:inline-block;border:1px solid;border-radius:20px;padding:3px 10px;white-space:nowrap;font-weight:600}
 .diagnose-high{background:#493124;color:#ffd1a5;border-color:#a37148}
 .diagnose-low{background:#183649;color:#a9ddff;border-color:#467d9d}
