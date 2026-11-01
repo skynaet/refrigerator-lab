@@ -19,6 +19,13 @@ export type Scenario = {
   readonly explanation: string;
 };
 export type Choice = Pick<Scenario, 'id' | 'name'>;
+export type AlternativeExplanation = Choice & {
+  readonly differences: readonly {
+    readonly parameter: Parameter;
+    readonly expected: Direction;
+    readonly actual: Direction;
+  }[];
+};
 export type RandomSource = () => number;
 
 // 모세관 방식의 단일 고장, 압축기 운전 중, 비슷한 주위 온도·부하를 가정한다.
@@ -93,6 +100,18 @@ export function listScenarios(): readonly Scenario[] {
 
 export function symptomKey(symptoms: Symptoms): string {
   return PARAMETERS.map(parameter => symptoms[parameter]).join('|');
+}
+
+// 일반적인 고장 전체를 단정하지 않고, 각 보기에서 가정한 방향과 문제의 차이만 반환한다.
+export function explainOthers(scenarioId: string): AlternativeExplanation[] {
+  const scenario = scenarios.find(item => item.id === scenarioId);
+  if (!scenario) throw new RangeError(`알 수 없는 문제: ${scenarioId}`);
+  return scenarios.filter(item => item.id !== scenarioId).map(item => ({
+    id: item.id,
+    name: item.name,
+    differences: PARAMETERS.filter(parameter => item.symptoms[parameter] !== scenario.symptoms[parameter])
+      .map(parameter => ({parameter, expected: item.symptoms[parameter], actual: scenario.symptoms[parameter]})),
+  }));
 }
 
 function randomIndex(length: number, rng: RandomSource): number {

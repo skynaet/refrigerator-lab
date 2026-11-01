@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import {PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, judge} from '../lib/diagnosis.ts';
+import {PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, explainOthers, judge} from '../lib/diagnosis.ts';
 
 const scenarios = listScenarios();
 const originalIds = scenarios.map(s => s.id);
 const directions = new Set(['높음', '낮음', '정상']);
-assert.ok(scenarios.length >= 6, '최소 6개 고장 시나리오');
+assert.equal(scenarios.length, 6, '추가 후보는 지표 불확실성·기존 결빙과의 중복으로 제외하여 6개 유지');
 assert.equal(PARAMETERS.length, 7);
 assert.equal(new Set(scenarios.map(s => s.id)).size, scenarios.length, '문제 ID 중복 금지');
 assert.equal(new Set(scenarios.map(s => symptomKey(s.symptoms))).size, scenarios.length, '증상 조합 중복 금지');
@@ -27,6 +27,27 @@ for (const scenario of scenarios) {
   assert.equal(choices.length, scenarios.length);
   assert.deepEqual(choices.map(c => c.id).sort(), scenarios.map(s => s.id).sort());
   assert.ok(choices.some(c => c.id === scenario.id && c.name === scenario.name));
+  const alternatives = explainOthers(scenario.id);
+  const otherScenarios = scenarios.filter(s => s.id !== scenario.id);
+  assert.equal(alternatives.length, otherScenarios.length, '정답을 제외한 모든 보기 해설');
+  assert.deepEqual(alternatives.map(item => item.id).sort(), otherScenarios.map(s => s.id).sort(), '정답 제외·오답 누락 및 중복 금지');
+  for (const alternative of alternatives) {
+    const other = otherScenarios.find(s => s.id === alternative.id);
+    assert.equal(alternative.name, other.name);
+    assert.ok(alternative.differences.length > 0, '오답 보기마다 차이가 하나 이상');
+    const expectedDifferences = PARAMETERS.filter(parameter => other.symptoms[parameter] !== scenario.symptoms[parameter])
+      .map(parameter => ({parameter, expected: other.symptoms[parameter], actual: scenario.symptoms[parameter]}));
+    assert.deepEqual(alternative.differences, expectedDifferences, `${scenario.id} / ${other.id}: 차이 항목과 양쪽 방향 일치`);
+  }
+  assert.deepEqual(explainOthers(scenario.id), alternatives, '같은 문제의 비교 결과 재현 가능');
+  const comparisonSnapshot = structuredClone(alternatives);
+  const scenarioSnapshot = structuredClone(scenarios);
+  // 반환값을 바꾸어도 원본 데이터나 이후 비교 결과에 영향을 주지 않는다.
+  alternatives[0].differences[0].actual = '변경';
+  alternatives[0].name = '변경';
+  alternatives.pop();
+  assert.deepEqual(explainOthers(scenario.id), comparisonSnapshot, '반환값 변경은 이후 결과에 영향 없음');
+  assert.deepEqual(scenarios, scenarioSnapshot, '비교 함수는 원본 데이터를 보존');
   // 모든 이전 문제와 추첨 구간에서 직전 문제를 제외한다.
   const candidates = scenarios.filter(s => s.id !== scenario.id);
   for (let i = 0; i < candidates.length; i++) {
@@ -46,8 +67,9 @@ assert.deepEqual(listScenarios().map(s => s.id), originalIds, '보기 섞기는 
 assert.throws(() => judge('unknown', scenarios[0].id), RangeError);
 assert.throws(() => judge(scenarios[0].id, 'unknown'), RangeError);
 assert.throws(() => judge('unknown', 'unknown'), RangeError);
+assert.throws(() => explainOthers('unknown'), RangeError);
 for (const invalid of [-0.1, 1, NaN, Infinity]) {
   assert.throws(() => pickScenario(() => invalid), RangeError);
   assert.throws(() => buildChoices(() => invalid), RangeError);
 }
-console.log('진단 연습 검사 통과: 증상 완전성·고유성, 모든 정오답, 잘못된 ID, 난수 주입, 연속 중복 방지, 보기 구성.');
+console.log('진단 연습 검사 통과: 증상 완전성·고유성, 모든 정오답, 오답별 차이 항목·방향, 잘못된 ID, 난수 주입, 연속 중복 방지, 보기 구성.');
