@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {CIRCUIT_PARTS, PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, explainOthers, judge} from '../lib/diagnosis.ts';
+import {CHECK_PARAMETERS, CIRCUIT_PARTS, PARAMETERS, listScenarios, symptomKey, pickScenario, buildChoices, explainOthers, judge} from '../lib/diagnosis.ts';
+import {parseDiagnosisRecords, summarizeDiagnosisRecords} from '../lib/diagnosis-records.ts';
 
 const scenarios = listScenarios();
 const originalIds = scenarios.map(s => s.id);
@@ -17,6 +18,24 @@ for (const scenario of scenarios) {
   for (const parameter of PARAMETERS) assert.ok(directions.has(scenario.symptoms[parameter]), `${scenario.id}: ${parameter}`);
   assert.ok(scenario.explanation.trim(), '빈 해설 금지');
   assert.ok(scenario.clues.length > 0 && scenario.clues.every(clue => typeof clue === 'string' && clue.trim()), '빈 단서 금지');
+  assert.ok(scenario.checks.length > 0, `${scenario.id}: 선택할 확인 항목 필수`);
+  const checkIds = new Set(scenario.checks.map(check => check.id));
+  assert.equal(checkIds.size, scenario.checks.length, `${scenario.id}: 확인 항목 ID 중복 금지`);
+  assert.ok(scenario.checks.every(check => typeof check.id === 'string' && check.id.trim()
+    && typeof check.label === 'string' && check.label.trim()
+    && typeof check.result === 'string' && check.result.trim()), `${scenario.id}: 확인 항목 ID·이름·결과 필수`);
+  assert.ok(scenario.keyCheckIds.length > 0, `${scenario.id}: 핵심 확인 항목 필수`);
+  assert.equal(new Set(scenario.keyCheckIds).size, scenario.keyCheckIds.length, `${scenario.id}: 핵심 ID 중복 금지`);
+  for (const id of scenario.keyCheckIds) assert.ok(checkIds.has(id), `${scenario.id}: 존재하는 확인 항목만 핵심 단서로 지정 (${id})`);
+  assert.deepEqual(scenario.checks.map(({id, label}) => ({id, label})), scenarios[0].checks.map(({id, label}) => ({id, label})), '열기 전 메뉴로 정답이 노출되지 않음');
+  for (const [id, parameter] of Object.entries(CHECK_PARAMETERS)) {
+    const check = scenario.checks.find(check => check.id === id);
+    assert.equal(check.result, scenario.symptoms[parameter], `${scenario.id}: 기존 지표의 경향 재사용`);
+    assert.equal(check.direction, scenario.symptoms[parameter], `${scenario.id}: 배지와 결과 일치`);
+  }
+  const observations = scenario.checks.filter(check => !Object.hasOwn(CHECK_PARAMETERS, check.id));
+  assert.deepEqual(observations.map(check => check.result), scenario.clues, `${scenario.id}: 기존 관찰 단서를 빠짐없이 재사용`);
+  assert.ok(!scenario.checks.some(check => check.label === '고내 온도'), '기본 증상은 확인 횟수에서 제외');
   const {parts, description} = scenario.circuitLocation;
   assert.ok(parts.length > 0, `${scenario.id}: 회로 강조 위치가 하나 이상`);
   assert.equal(new Set(parts).size, parts.length, `${scenario.id}: 회로 강조 위치 중복 금지`);
@@ -83,4 +102,19 @@ for (const invalid of [-0.1, 1, NaN, Infinity]) {
   assert.throws(() => pickScenario(() => invalid), RangeError);
   assert.throws(() => buildChoices(() => invalid), RangeError);
 }
-console.log('진단 연습 검사 통과: 증상 완전성·고유성, 회로 위치·현장 확인 순서·안전 안내, 모든 정오답, 오답별 차이 항목·방향, 잘못된 ID, 난수 주입, 연속 중복 방지, 보기 구성.');
+// 실제 재시도도 각각 한 번의 풀이로 남기고, 미확인 제출(0회)도 평균에 포함한다.
+const records = [
+  {scenarioId: scenarios[0].id, correct: true, checkCount: 0},
+  {scenarioId: scenarios[1].id, correct: false, checkCount: scenarios[1].checks.length},
+  {scenarioId: scenarios[0].id, correct: true, checkCount: 1},
+];
+assert.deepEqual(parseDiagnosisRecords(JSON.stringify({version: 1, records})), records, '시나리오별 정오답·확인 횟수 왕복');
+assert.deepEqual(summarizeDiagnosisRecords(records), {correctCount: 2, solvedCount: 3, averageChecks: 3}, '반복 풀이·오답·0회 제출의 누적과 평균');
+assert.deepEqual(summarizeDiagnosisRecords([]), {correctCount: 0, solvedCount: 0, averageChecks: 0}, '초기화 후 평균은 0');
+for (const invalid of [null, '', '{', 'null', '[]', '1', '{}', '{"version":2,"records":[]}', '{"version":1,"records":{}}']) {
+  assert.deepEqual(parseDiagnosisRecords(invalid), [], `손상·구버전 기록은 안전하게 무시: ${invalid}`);
+}
+const invalidRecords = [null, {}, {scenarioId: 'unknown', correct: true, checkCount: 1},
+  {...records[0], correct: 'true'}, ...[-1, 0.5, scenarios[0].checks.length + 1, '1', null].map(checkCount => ({...records[0], checkCount}))];
+assert.deepEqual(parseDiagnosisRecords(JSON.stringify({version: 1, records: [...invalidRecords, records[0]]})), [records[0]], '잘못된 레코드만 제외하고 유효한 기록 복원');
+console.log('진단 연습 검사 통과: 증상 완전성·고유성, 단계별 확인·핵심 단서 ID, 기존 단서 재사용, 회로 위치·현장 확인 순서·안전 안내, 모든 정오답·오답 비교, 추첨·보기 구성, 기록 복원·손상 방어·누적 성적.');
