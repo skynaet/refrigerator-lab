@@ -21,7 +21,7 @@ export default function ModelsPage(){
  const groups=data?data.spec.components.filter(c=>!c.group):[];
  const current=data&&([...data.spec.components,...data.spec.circuit].find(c=>c.id===selected));
  const base=asset(`/models/${id}`),v=data?.ver;
- return <main className="hr-app"><header><div><small>SPEC-GENERATED MODELS</small><h1>사양서 기반 <b>모델</b></h1></div><nav><Link href="/new">새로 만들기</Link><Link href="/editor">사양서 편집기</Link><Link href="/">HR24B 도면 대조</Link><Link href="/reference">T-19-HC 시뮬레이터</Link><Link href="/diagnose">고장 진단 연습</Link></nav></header>
+ return <main className="hr-app"><header><div><small>SPEC-GENERATED MODELS</small><h1>사양서 기반 <b>모델</b></h1></div><nav><Link href="/new">새로 만들기</Link><Link href="/editor">사양서 편집기</Link><Link href="/">HR24B 도면 대조</Link><Link href="/reference">T-19-HC 시뮬레이터</Link><Link href="/diagnose">고장 진단 연습</Link><Link href="/calculator">현장 계산기</Link></nav></header>
  <div className="hr-summary">사양서(JSON) 하나로 외함·부품·냉매 배관을 생성하고 자동 검사합니다<span>{index.length}개 모델</span><b>{data?.spec.meta.model}</b></div>
  <div className="hr-work"><aside className="hr-parts"><h2>모델</h2>{index.map(m=><button key={m.id} className={id===m.id?'active':''} onClick={()=>{setData(null);setId(m.id);setSelected('compressor');}}><span>{m.refrigerant}</span>{m.model}</button>)}
  <h2 style={{marginTop:24}}>부품</h2>{groups.map(g=><button key={g.id} className={selected===g.id?'active':''} onClick={()=>setSelected(g.id)}>{g.name}</button>)}

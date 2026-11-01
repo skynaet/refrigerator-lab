@@ -1,0 +1,51 @@
+.hr-app.calc-app header{flex-wrap:wrap;gap:16px;overflow-wrap:anywhere}
+.hr-app.calc-app header>div{min-width:0}
+.hr-app.calc-app header nav{flex-direction:row;flex-wrap:wrap;gap:8px 16px;min-width:0;max-width:100%}
+.hr-app.calc-app header nav a{display:inline-flex;align-items:center;min-width:44px;min-height:44px;max-width:100%}
+.calc-content{display:grid;gap:16px;width:100%;max-width:720px;margin:auto;padding:20px 16px 40px;overflow-wrap:anywhere}
+.calc-intro{color:#abc4cd}
+.calc-panel{min-width:0;border:1px solid #37515d;border-radius:8px;background:#15242d;padding:16px}
+.calc-app .calc-panel h2{font-size:17px;margin-bottom:14px;color:#e8f2f3}
+.calc-segmented{border:0;margin:0 0 14px;padding:0;min-width:0}
+.calc-segmented legend{padding:0;margin-bottom:8px;font-size:13px;color:#c4d9df}
+.calc-segmented>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px}
+.calc-segmented label{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:48px;padding:8px 10px;border:1px solid #37515d;border-radius:6px;background:#1c303c;color:#c4d9df;text-align:center;cursor:pointer;line-height:1.3}
+.calc-segmented label small{display:block;font-size:12px;color:#8faeba;margin-top:2px}
+.calc-segmented label.calc-checked{background:#254b4e;color:#a0f5df;border-color:#6fc6b2;font-weight:600}
+.calc-segmented label.calc-checked small{color:#a0f5df}
+.calc-segmented input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.calc-segmented label:has(input:focus-visible){outline:2px solid #99dfca;outline-offset:2px}
+.calc-field{margin-bottom:14px;min-width:0}
+.calc-field>label{display:block;margin-bottom:6px;font-size:14px;color:#dce9ec;font-weight:600}
+.calc-input-row{display:flex;align-items:stretch;gap:8px;min-width:0}
+.calc-input-row input{flex:1 1 auto;min-width:0;width:100%;min-height:52px;padding:10px 12px;border:1px solid #4a6a77;border-radius:6px;background:#0e1a21;color:#f2fafb;font-size:20px;font-variant-numeric:tabular-nums}
+.calc-input-row input::placeholder{color:#6f8c98}
+.calc-input-row input[aria-invalid=true]{border-color:#e0a286}
+.calc-input-row input:focus-visible{outline:2px solid #99dfca;outline-offset:2px}
+.calc-unit{display:flex;align-items:center;flex-shrink:0;max-width:30%;font-size:13px;color:#abc4cd;overflow-wrap:anywhere}
+.calc-app .calc-input-row button{flex-shrink:0;min-width:52px;min-height:52px;font-size:20px;padding:0 12px}
+.calc-help{margin-top:6px;font-size:12px;color:#abc4cd}
+.calc-atmosphere{border:1px solid #37515d;border-radius:6px;padding:0 12px;margin-bottom:12px}
+.calc-atmosphere summary{cursor:pointer;min-height:48px;padding:12px 0;color:#8edbc9}
+.calc-atmosphere>p{color:#abc4cd;margin-bottom:12px}
+.calc-app .calc-reset{min-height:48px;margin-bottom:12px;white-space:normal}
+.calc-app .calc-reset:disabled{opacity:.6;cursor:default}
+.calc-storage-note{font-size:12px;color:#8faeba}
+.calc-result{border-top:1px solid #37515d;padding-top:14px;margin-top:4px}
+.calc-result>p+p,.calc-metrics+p{margin-top:10px}
+.calc-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:0}
+.calc-metrics>div{border:1px solid #37515d;border-radius:6px;padding:10px 12px;background:#1a2c36;min-width:0}
+.calc-metrics dt{font-size:12px;color:#abc4cd}
+.calc-metrics dd{margin:2px 0 0;font-size:26px;line-height:1.3;color:#e8f2f3;font-variant-numeric:tabular-nums}
+.calc-metrics dd small{font-size:14px;color:#abc4cd}
+.calc-metrics .calc-main-metric{border-color:#6fc6b2;background:#1d3a3b}
+.calc-metrics .calc-main-metric dd{color:#a0f5df;font-weight:600}
+.calc-pending{font-size:15px;font-weight:400;color:#c4d9df}
+.calc-note{font-size:13px;color:#c4d9df}
+.calc-warning{padding:10px 12px;border:1px solid #a37148;border-radius:6px;background:#3b2a25;color:#ffd1a5}
+.calc-other-units{font-size:13px;color:#abc4cd}
+.calc-link-note{margin-top:14px;font-size:13px;color:#abc4cd}
+.calc-link-note a,.calc-sources a{text-decoration:underline}
+.calc-sources ul{padding-left:20px;margin:0;color:#abc4cd;list-style:disc}
+.calc-sources li+li{margin-top:8px}
+.calc-sources code{overflow-wrap:anywhere}

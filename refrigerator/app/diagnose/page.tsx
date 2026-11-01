@@ -91,7 +91,7 @@ export default function DiagnosePage() {
   return <main className="hr-app diagnose-app">
     <header>
       <div><small>냉동 사이클 학습</small><h1>냉매 회로 <b>고장 진단 연습</b></h1></div>
-      <nav aria-label="화면 이동"><Link href="/" prefetch={false}>HR24B 홈</Link><Link href="/models" prefetch={false}>모델 목록</Link><Link href="/reference" prefetch={false}>T-19-HC 시뮬레이터</Link></nav>
+      <nav aria-label="화면 이동"><Link href="/" prefetch={false}>HR24B 홈</Link><Link href="/models" prefetch={false}>모델 목록</Link><Link href="/reference" prefetch={false}>T-19-HC 시뮬레이터</Link><Link href="/calculator" prefetch={false}>현장 계산기</Link></nav>
     </header>
     <div className="diagnose-content">
       <p className="diagnose-disclaimer">교과서 수준의 모세관 방식 냉동 사이클 연습입니다. 제조사 서비스 데이터나 특정 모델의 실측값이 아닙니다.</p>
@@ -100,6 +100,7 @@ export default function DiagnosePage() {
         <p>압축기 운전 중, 주위 온도와 부하가 비슷한 정상 운전 상태와 비교합니다. 한 번에 하나의 고장만 가정합니다.</p>
         <p>과열도는 흡입 냉매 온도가 저압의 포화온도보다 높은 정도, 과냉도는 응축기 출구 액냉매 온도가 고압의 포화온도보다 낮은 정도입니다. 증발기 온도는 저압에 대응하는 냉매 포화온도이며, 코일 전체의 표면 온도는 아닙니다.</p>
         <p>모세관 방식은 냉매량·풍량·부하에 따라 경향이 달라집니다. 문제에 제시된 단서와 함께 판단하세요.</p>
+        <p>측정한 게이지 압력과 배관 온도로 과열도·과냉도를 구하려면 <Link href="/calculator" prefetch={false}>현장 계산기</Link>를 쓰세요(R290·R600a).</p>
       </details>
       {!practice ? <output>문제를 준비하고 있습니다…</output> : <>
         <section className="diagnose-score" aria-label="누적 성적">
@@ -169,6 +170,7 @@ export default function DiagnosePage() {
                   <h4>현장 확인 순서</h4>
                   <p>운전 조건을 맞춰 여러 단서를 함께 확인하세요. 지표 하나만으로 고장을 확정하지 않습니다.</p>
                   <ol>{practice.scenario.fieldChecks.map(check => <li key={check}>{check}</li>)}</ol>
+                  <Link className="diagnose-circuit-link" href="/calculator" prefetch={false}>측정값으로 과열도·과냉도 계산하기</Link>
                   <p className="diagnose-safety"><strong>안전:</strong> {practice.scenario.safetyNote}</p>
                 </section>
                 <details className="diagnose-alternatives">
