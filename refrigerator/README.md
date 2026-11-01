@@ -6,7 +6,7 @@
 - [HR24B (`/`)](#hoshizaki-hr24b-)
 - [True T-19-HC (`/reference`)](#true-t-19-hc-reference)
 - 냉매 회로 고장 진단 연습 (`/diagnose`): 모세관 방식의 대표 고장 6가지. 고내 온도가 높은 기본 증상에서 시작해 압력·과열도·과냉도·전류·증발기 온도·현장 관찰 결과를 하나씩 확인하며 원인을 좁힙니다. 확인 없이도 답을 고를 수 있고 같은 항목은 한 번만 셉니다. 답한 뒤 핵심 단서와 답하기 전 확인 여부, 전체 결과, 2D 회로의 고장 위치, 현장 확인 순서·안전 안내·오답 비교를 제공합니다. 시나리오별 정오답과 답하기 전 확인 횟수는 이 브라우저의 localStorage에 저장하며, 누적 맞힌 수/푼 수·평균 확인 횟수와 기록 초기화를 지원합니다. 해설에서 공개한 결과는 횟수에 더하지 않습니다. 저장소를 사용할 수 없으면 이 탭에서만 집계합니다. 3D 배관 화면으로 이동할 수 있으며, 제조사 서비스 데이터가 아닌 교과서 수준의 연습입니다.
-- 과열도·과냉도 현장 계산기 (`/calculator`): 계산은 `lib/field-calculator.ts`에 있다. 냉매는 저장소에 검증 가능한 포화 데이터가 있는 R290·R600a만 넣었다. R290은 `public/reference/cycle-table.json`, R600a는 `public/design/r600a-cycle-grid.json`(둘 다 CoolProp 8.0.0)의 포화압력 점(−20/−25…0 °C, 30…65 °C, 5 K 간격)을 1 Pa로 반올림해 쓰고, `tests/field-calculator.mjs`가 원본 JSON과 일치하는지 검사한다. 점 사이는 ln(P)–1/T 선형 보간이며, 표 점이 없는 0~30 °C 구간은 화면에 보간 구간임을 표시한다(표 점을 빼고 50 K 간격으로 다시 맞춘 오차 R290 0.13 K, R600a 0.26 K 이내). 표 범위 밖은 외삽하지 않고 범위 밖으로 표시한다. 게이지압은 kPa·MPa·bar·psig·kgf/cm²를 정의상 정확한 계수로 환산하고, 절대압 = 게이지압 + 대기압(기본 101.325 kPa, 50~110 kPa에서 변경 가능)이다. 과열도 = 흡입관 온도 − 포화온도, 과냉도 = 포화온도 − 액관 온도. 저장소에 기기별 정상 범위가 없으므로 높음·정상·낮음은 판정하지 않고 서비스 데이터와 비교하도록 안내하며, 음수일 때만 측정 확인을 안내한다. 숫자 키패드(`inputMode="decimal"`)에 마이너스가 없는 휴대폰을 위해 ± 버튼이 있고, 쉼표 소수점과 −도 받는다. 마지막 냉매·측정 위치·단위는 `refrigerator-field-calculator` 키에 마운트 후 저장하며 측정값은 저장하지 않는다. 저장소를 쓸 수 없어도 계산은 된다. three.js를 불러오지 않으며, 진단 연습 화면의 기초 설명·현장 확인 순서와 서로 연결된다.
+- 과열도·과냉도 현장 계산기 (`/calculator`): 계산은 `lib/field-calculator.ts`에 있다. 냉매는 단일 성분인 R290·R600a·R134a다. 포화압력은 `public/calculator/saturation-table.json`(CoolProp 8.0.0, −40…70 °C, 1 K 간격, 절대압 Pa, 0.1 Pa 반올림)에서 읽는다. 단일 성분이라 기포점·이슬점 압력이 같고, 혼합 냉매(R404A·R407C 등)는 넣지 않았다. 점 사이는 ln(P)–1/T 선형 보간이며 CoolProp 직접 계산과의 최대 차이는 0.0002 K 수준이다(생성 스크립트가 0.05 K 미만인지 검사하고 기록). 표 범위 밖은 외삽하지 않고 한계값과 함께 범위 밖으로 표시한다. `tests/field-calculator.mjs`는 기존 CoolProp 표(`public/reference/cycle-table.json`, `public/design/r600a-cycle-grid.json`)와 공통 온도에서 0.06 Pa 이내로 일치하는지, R134a 0 °C 292.8 kPa(a)·40 °C 1016.6 kPa(a)를 검사한다. 안전 안내는 선택한 냉매별로 보여 준다(R290·R600a 가연성 A3, R134a 불연성 A1이지만 고압·환기·회수 규칙). 게이지압은 kPa·MPa·bar·psig·kgf/cm²를 정의상 정확한 계수로 환산하고, 절대압 = 게이지압 + 대기압(기본 101.325 kPa, 50~110 kPa에서 변경 가능)이다. 과열도 = 흡입관 온도 − 포화온도, 과냉도 = 포화온도 − 액관 온도. 저장소에 기기별 정상 범위가 없으므로 높음·정상·낮음은 판정하지 않고 서비스 데이터와 비교하도록 안내하며, 음수일 때만 측정 확인을 안내한다. 숫자 키패드(`inputMode="decimal"`)에 마이너스가 없는 휴대폰을 위해 ± 버튼이 있고, 쉼표 소수점과 −도 받는다. 마지막 냉매·측정 위치·단위는 `refrigerator-field-calculator` 키에 마운트 후 저장하며 측정값은 저장하지 않는다. 저장소를 쓸 수 없어도 계산은 된다. three.js를 불러오지 않으며, 진단 연습 화면의 기초 설명·현장 확인 순서와 서로 연결된다.
 - [MONO 120 (`/lab`)](#mono-120-lab)
 - [제조사 문서](#제조사-문서-저장소-미포함)
 - [배포](#github-pages)
@@ -99,6 +99,16 @@ CAD 가져오기(`generator/cad.mjs`)는 STEP·IGES를 occt-import-js(OpenCascad
 
 `public/reference/`: 재구성 STEP/FCStd, 메쉬, 치수·간섭 검증, 출처와 추정 목록, R290 물성표. `generate_true_cad.py`는 FreeCAD Python, `generate_cycle.py`는 CoolProp이 설치된 Python에서 실행한다.
 
+`public/calculator/`: 현장 계산기(`/calculator`)의 포화압력 표 `saturation-table.json`과 생성 스크립트 `generate_saturation.py`. CoolProp 버전을 8.0.0으로 고정했고(다른 버전이면 스크립트가 멈춘다), 저장소 루트에서 다음처럼 다시 만든다. CoolProp은 npm 의존성이 아니다.
+
+```bash
+python3 -m venv /tmp/sat-venv
+/tmp/sat-venv/bin/pip install CoolProp==8.0.0
+/tmp/sat-venv/bin/python refrigerator/public/calculator/generate_saturation.py
+```
+
+표에는 CoolProp 버전, 유체 이름(CoolProp 이름 포함), 단위(°C, 절대압 Pa), 생성 날짜, 냉매별 ASHRAE 안전 등급·임계온도·검사한 최대 보간 오차가 들어 있다. 다시 만든 뒤 `npm test`로 기존 표와의 일치를 확인한다.
+
 ## MONO 120 (`/lab`)
 
 120L 1도어 냉장고 가상 설계다. 실제 제품이 아니다.
@@ -155,7 +165,7 @@ npm run build
 | `tests/cad.mjs` | CAD: STEP 읽기와 회전 배치, CAD 부품 포트 사이 자동 배관과 이동 후 재배관, 클릭 포트 좌표 변환 왕복, 파일 누락 오류 |
 | `tests/models.mjs` | 생성기: 모든 사양서 생성·검사 통과, 커밋된 결과가 최신인지, T-19-HC 하부 배치, 자동 경로와 부품 이동 시 배관 추종, 잘못된 사양서 8종 거부 |
 | `tests/diagnosis.mjs` | 고장 진단 연습: 시나리오 증상·단서·확인 항목·핵심 단서, 회로 위치·현장 확인 순서, 정오답·오답 비교, 학습 기록 복원·집계 |
-| `tests/field-calculator.mjs` | 현장 계산기: R290·R600a 포화점의 원본 표 일치, 표 점 왕복, 보간·넓은 간격 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호, 입력 해석, 선택값 저장 |
+| `tests/field-calculator.mjs` | 현장 계산기: 생성 포화표 메타데이터와 기존 CoolProp 표 일치, R134a 공개값, 단조성·표 점 왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호, 입력 해석, 선택값 저장 |
 
 ## 출처
 

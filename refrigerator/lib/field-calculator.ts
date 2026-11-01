@@ -1,50 +1,45 @@
 // 현장 과열도·과냉도 계산기의 순수 계산 모듈 (화면·저장소와 무관).
 //
-// 포화 데이터 출처: 이 저장소에 이미 있는 CoolProp 8.0.0 계산표만 사용한다. 새 물성값을 만들지 않는다.
-// - R290: public/reference/cycle-table.json (generate_cycle.py, PropsSI('P','T',T,'Q',1|0,'R290'))
-//   evaporatingC −20…0 °C의 pLowPa, condensingC 30…65 °C의 pHighPa.
-// - R600a: public/design/r600a-cycle-grid.json (public/design/generate.py, PropsSI('P','T',T,'Q',1|0,'R600a'))
-//   evaporatingC −25…0 °C의 pLowPa, condensingC 30…65 °C의 pHighPa.
-// 두 냉매 모두 단일 성분이라 이슬점(Q=1)·기포점(Q=0) 압력이 같다. 값은 1 Pa(0.001 kPa)로 반올림했고
-// tests/field-calculator.mjs가 원본 JSON과 0.5 Pa 이내로 일치하는지 검사한다.
-// R134a 등 다른 냉매는 저장소에 검증 가능한 포화 데이터가 없어 넣지 않았다.
+// 포화 데이터 출처: public/calculator/saturation-table.json
+// - public/calculator/generate_saturation.py가 CoolProp 8.0.0의 PropsSI('P','T',T,'Q',0,fluid)로 만든다.
+//   −40…70 °C, 1 K 간격, 절대압 Pa(0.1 Pa 반올림). R290·R600a·R134a는 단일 성분이라 기포점(Q=0)과
+//   이슬점(Q=1) 압력이 같다(생성 스크립트가 확인). 혼합 냉매(R404A 등)는 넣지 않았다.
+// - tests/field-calculator.mjs가 저장소의 기존 CoolProp 표(public/reference/cycle-table.json,
+//   public/design/r600a-cycle-grid.json)와 공통 온도에서 일치하는지 검사한다.
 //
-// 표 점 사이는 ln(P)와 1/T(K)를 선형 보간한다(클라우지우스-클라페이롱 형태). 표 범위 밖은 외삽하지 않고
-// 범위 밖으로 표시한다. 0~30 °C는 표에 점이 없어 30 K 간격을 보간하며, 표의 점을 빼고 50 K 간격으로
-// 보간해 다시 맞춰 본 오차는 R290 0.13 K, R600a 0.26 K 이내였다(tests/field-calculator.mjs에서 검사).
+// 표 점 사이는 ln(P)와 1/T(K)를 선형 보간한다(클라우지우스-클라페이롱 형태). 1 K 간격에서 CoolProp 직접 계산과의
+// 최대 오차는 0.0002 K 수준이다(생성 스크립트가 기록·검사). 표 범위 밖은 외삽하지 않고 범위 밖으로 표시한다.
+import saturationTable from '../public/calculator/saturation-table.json' with {type: 'json'};
 
-export type RefrigerantId = 'R290' | 'R600a';
+export type RefrigerantId = 'R290' | 'R600a' | 'R134a';
 /** [포화온도 °C, 절대 포화압력 kPa(a)] — 온도 오름차순 */
 export type SaturationPoint = readonly [temperatureC: number, pressureKPaAbs: number];
 export type RefrigerantData = {
   readonly id: RefrigerantId;
   readonly label: string;
+  /** ASHRAE 34 안전 등급 (A1 불연, A3 고가연) */
+  readonly safetyGroup: string;
   readonly points: readonly SaturationPoint[];
   readonly source: string;
 };
 
-export const REFRIGERANTS: Readonly<Record<RefrigerantId, RefrigerantData>> = {
-  R290: {
-    id: 'R290',
-    label: 'R290 (프로판)',
-    source: 'public/reference/cycle-table.json · CoolProp 8.0.0',
-    points: [
-      [-20, 244.518], [-15, 291.624], [-10, 345.28], [-5, 406.037], [0, 474.458],
-      [30, 1078.995], [35, 1217.883], [40, 1369.42], [45, 1534.314], [50, 1713.304],
-      [55, 1907.172], [60, 2116.753], [65, 2342.951],
-    ],
-  },
-  R600a: {
-    id: 'R600a',
-    label: 'R600a (이소부탄)',
-    source: 'public/design/r600a-cycle-grid.json · CoolProp 8.0.0',
-    points: [
-      [-25, 58.427], [-20, 72.477], [-15, 89.053], [-10, 108.45], [-5, 130.977], [0, 156.956],
-      [30, 404.723], [35, 464.769], [40, 531.208], [45, 604.446], [50, 684.898],
-      [55, 772.991], [60, 869.161], [65, 973.856],
-    ],
-  },
-};
+export const SATURATION_TABLE_PATH = 'public/calculator/saturation-table.json';
+export const SATURATION_LIBRARY = saturationTable.library;
+const REFRIGERANT_ORDER: readonly RefrigerantId[] = ['R290', 'R600a', 'R134a'];
+
+function buildRefrigerants(): Record<RefrigerantId, RefrigerantData> {
+  const {min, step} = saturationTable.temperatureC;
+  const result: Partial<Record<RefrigerantId, RefrigerantData>> = {};
+  for (const id of REFRIGERANT_ORDER) {
+    const fluid = saturationTable.fluids.find(item => item.id === id);
+    if (!fluid) throw new Error(`포화표에 ${id}가 없습니다`);
+    const points = fluid.pressurePa.map((pa, i): SaturationPoint => [min + i * step, pa / 1000]);
+    result[id] = {id, label: fluid.label, safetyGroup: fluid.ashraeSafetyGroup, points, source: `${SATURATION_TABLE_PATH} · ${saturationTable.library}`};
+  }
+  return result as Record<RefrigerantId, RefrigerantData>;
+}
+
+export const REFRIGERANTS: Readonly<Record<RefrigerantId, RefrigerantData>> = buildRefrigerants();
 export const REFRIGERANT_IDS = Object.keys(REFRIGERANTS) as RefrigerantId[];
 
 /** 표준 대기압 (ISO 2533, 101.325 kPa). 게이지압 = 절대압 − 대기압. */
@@ -91,12 +86,9 @@ export type InterpolationResult =
       readonly value: number;
       /** 보간에 쓴 두 표 점의 온도(°C). 표 점과 같으면 두 값이 같다. */
       readonly bracketC: readonly [number, number];
-      /** 표 간격(5 K)보다 넓은 구간(0~30 °C)을 보간했는지 */
-      readonly wideGap: boolean;
     }
   | {readonly status: 'below' | 'above'; readonly limit: number};
 
-const TABLE_STEP_K = 5;
 const KELVIN = 273.15;
 const invT = (temperatureC: number) => 1 / (temperatureC + KELVIN);
 
@@ -116,11 +108,11 @@ export function saturationTemperatureC(points: readonly SaturationPoint[], press
   const found = bracket(points, point => point[1], pressureKPaAbs);
   if (typeof found !== 'number') return found;
   const [[t1, p1], [t2, p2]] = [points[found], points[found + 1]];
-  if (pressureKPaAbs === p1) return {status: 'ok', value: t1, bracketC: [t1, t1], wideGap: false};
-  if (pressureKPaAbs === p2) return {status: 'ok', value: t2, bracketC: [t2, t2], wideGap: false};
+  if (pressureKPaAbs === p1) return {status: 'ok', value: t1, bracketC: [t1, t1]};
+  if (pressureKPaAbs === p2) return {status: 'ok', value: t2, bracketC: [t2, t2]};
   const f = (Math.log(pressureKPaAbs) - Math.log(p1)) / (Math.log(p2) - Math.log(p1));
   const value = 1 / (invT(t1) + f * (invT(t2) - invT(t1))) - KELVIN;
-  return {status: 'ok', value, bracketC: [t1, t2], wideGap: t2 - t1 > TABLE_STEP_K};
+  return {status: 'ok', value, bracketC: [t1, t2]};
 }
 
 /** 포화온도(°C) → 절대 포화압력(kPa). 표 범위 밖이면 외삽하지 않고 범위 밖으로 돌려준다. */
@@ -128,11 +120,11 @@ export function saturationPressureKPa(points: readonly SaturationPoint[], temper
   const found = bracket(points, point => point[0], temperatureC);
   if (typeof found !== 'number') return found;
   const [[t1, p1], [t2, p2]] = [points[found], points[found + 1]];
-  if (temperatureC === t1) return {status: 'ok', value: p1, bracketC: [t1, t1], wideGap: false};
-  if (temperatureC === t2) return {status: 'ok', value: p2, bracketC: [t2, t2], wideGap: false};
+  if (temperatureC === t1) return {status: 'ok', value: p1, bracketC: [t1, t1]};
+  if (temperatureC === t2) return {status: 'ok', value: p2, bracketC: [t2, t2]};
   const f = (invT(temperatureC) - invT(t1)) / (invT(t2) - invT(t1));
   const value = Math.exp(Math.log(p1) + f * (Math.log(p2) - Math.log(p1)));
-  return {status: 'ok', value, bracketC: [t1, t2], wideGap: t2 - t1 > TABLE_STEP_K};
+  return {status: 'ok', value, bracketC: [t1, t2]};
 }
 
 /** 저압(흡입)측: 과열도 = 배관 온도 − 포화온도 */
