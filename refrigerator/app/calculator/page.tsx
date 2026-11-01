@@ -5,13 +5,21 @@ import type {ReactNode} from 'react';
 import Link from 'next/link';
 import {
   ATMOSPHERE_RANGE_KPA, DEFAULT_CALCULATOR_PREFS, MEASUREMENT_SIDES, PRESSURE_UNITS, PRESSURE_UNIT_IDS, REFRIGERANTS, REFRIGERANT_IDS,
+  SATURATION_LIBRARY, SATURATION_TABLE_PATH,
   STANDARD_ATMOSPHERE_KPA, absoluteKPaToGauge, calculateField, parseCalculatorPrefs, parseDecimal, saturationPressureKPa,
   serializeCalculatorPrefs, toggleSign,
 } from '@/lib/field-calculator';
-import type {CalculatorPrefs, InterpolationResult, MeasurementSide, PressureUnit} from '@/lib/field-calculator';
+import type {CalculatorPrefs, InterpolationResult, MeasurementSide, PressureUnit, RefrigerantId} from '@/lib/field-calculator';
 import {FIELD_CALCULATOR_KEY} from '@/lib/storage-keys';
 import '../hr24/style.css';
 import './calculator.css';
+
+// 선택한 냉매의 안전 안내. 등급은 ASHRAE 34 분류이며, 세부 절차는 제조사 서비스 절차와 현지 법규를 따른다.
+const SAFETY_NOTES: Readonly<Record<RefrigerantId, string>> = {
+  R290: 'R290은 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
+  R600a: 'R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
+  R134a: 'R134a는 불연성(A1)이지만 고압 용기·배관은 그대로 위험합니다. 밀폐 공간에서는 공기를 밀어내므로 환기하고, 화염·뜨거운 표면에 닿으면 유해한 분해 생성물이 생길 수 있습니다. 대기로 방출하지 말고 회수 장비로 회수하며, 제조사 서비스 절차와 현지 법규를 따르세요.',
+};
 
 // 음수 0(-0.0) 표시를 피하고 마이너스 기호를 읽기 쉬운 −로 바꾼다.
 function format(value: number, digits: number) {
@@ -94,7 +102,6 @@ export default function CalculatorPage() {
   const [maxC, maxKPa] = data.points[data.points.length - 1];
   const reverseC = parseDecimal(reverseText);
   const reverse: InterpolationResult | null = reverseC === null ? null : saturationPressureKPa(data.points, reverseC);
-  const gapNote = <p className="calc-note">0~30 °C 사이는 표에 점이 없어 넓은 간격을 보간한 값입니다. 표의 점을 빼고 더 넓은 간격으로 다시 맞춰 본 오차는 0.3 K 이내였습니다.</p>;
 
   return <main className="hr-app calc-app">
     <header>
@@ -112,7 +119,8 @@ export default function CalculatorPage() {
         <h2 id="calc-setup-title">측정 조건</h2>
         <Segmented legend="냉매" name="refrigerant" value={refrigerant} onChange={value => updatePrefs({refrigerant: value})}
           options={REFRIGERANT_IDS.map(id => ({value: id, label: REFRIGERANTS[id].label}))}/>
-        <p className="calc-help">계산 범위: 포화온도 {format(minC, 0)}~{format(maxC, 0)} °C ({formatGauge(minKPa, unit, atmosphere)} ~ {formatGauge(maxKPa, unit, atmosphere)}). 범위 밖은 계산하지 않습니다. R134a 등은 이 저장소에 검증된 포화 데이터가 없어 넣지 않았습니다.</p>
+        <p className="calc-help">계산 범위: 포화온도 {format(minC, 0)}~{format(maxC, 0)} °C ({formatGauge(minKPa, unit, atmosphere)} ~ {formatGauge(maxKPa, unit, atmosphere)}). 범위 밖은 계산하지 않습니다. 혼합 냉매(R404A·R407C 등)는 기포점과 이슬점 압력이 달라 넣지 않았습니다.</p>
+        <p className="calc-help"><strong>안전:</strong> {SAFETY_NOTES[refrigerant]}</p>
         <Segmented legend="측정 위치" name="side" value={side} onChange={(value: MeasurementSide) => updatePrefs({side: value})}
           options={(Object.keys(MEASUREMENT_SIDES) as MeasurementSide[]).map(id => ({value: id, label: <>{MEASUREMENT_SIDES[id].label}<small>{MEASUREMENT_SIDES[id].quantity}</small></>}))}/>
         <Segmented legend="게이지 압력 단위" name="unit" value={unit} onChange={value => updatePrefs({unit: value})}
@@ -152,7 +160,6 @@ export default function CalculatorPage() {
               <div className="calc-main-metric"><dt>{quantity}</dt><dd>{result.differenceK === null ? <span className="calc-pending">온도 입력 필요</span> : <>{format(result.differenceK, 1)} <small>K</small></>}</dd></div>
               <div><dt>절대압력</dt><dd>{format(result.pressureKPaAbs, 1)} <small>kPa(a)</small></dd></div>
             </dl>
-            {result.saturation.wideGap && gapNote}
             {result.differenceK !== null && (result.differenceK < 0
               ? <p className="calc-warning">{side === 'suction'
                 ? '음수: 흡입관 온도가 포화온도보다 낮습니다. 과열 증기에서는 생길 수 없으므로 온도 센서 접촉·보온, 압력과 온도의 측정 위치, 게이지 영점, 냉매 종류와 단위를 다시 확인하세요.'
@@ -181,7 +188,6 @@ export default function CalculatorPage() {
             </dl>
             {reverse.value < atmosphere && <p className="calc-note">대기압보다 낮은 압력(진공 영역)입니다.</p>}
             <p className="calc-other-units">다른 단위: {PRESSURE_UNIT_IDS.filter(id => id !== unit).map(id => formatGauge(reverse.value, id, atmosphere)).join(' · ')}</p>
-            {reverse.wideGap && gapNote}
           </>}
         </div>
       </section>
@@ -189,10 +195,11 @@ export default function CalculatorPage() {
       <section className="calc-panel calc-sources" aria-labelledby="calc-source-title">
         <h2 id="calc-source-title">계산 근거와 주의</h2>
         <ul>
-          <li>포화 데이터: 이 저장소의 CoolProp 8.0.0 계산표만 씁니다. R290은 <code>{REFRIGERANTS.R290.source.split(' · ')[0]}</code>, R600a는 <code>{REFRIGERANTS.R600a.source.split(' · ')[0]}</code>의 포화압력 점입니다.</li>
-          <li>표 점 사이는 로그 압력과 절대온도의 역수를 선형 보간합니다. 표 범위 밖은 외삽하지 않습니다.</li>
+          <li>포화 데이터: {SATURATION_LIBRARY}로 만든 <code>{SATURATION_TABLE_PATH}</code>(−40~70 °C, 1 K 간격, 절대압)을 씁니다. 생성 스크립트 <code>generate_saturation.py</code>가 같은 폴더에 있어 다시 만들 수 있습니다. R290·R600a·R134a는 단일 성분 냉매라 기포점과 이슬점 압력이 같습니다.</li>
+          <li>표 점 사이는 로그 압력과 절대온도의 역수를 선형 보간합니다(CoolProp 직접 계산과의 차이 0.001 K 미만). 표 범위 밖은 외삽하지 않습니다.</li>
           <li>게이지·온도계의 오차, 배관 표면과 냉매의 온도 차이, 운전 안정 여부에 따라 결과가 달라집니다. 운전이 안정된 뒤 측정하세요.</li>
-          <li><strong>안전:</strong> R290·R600a는 가연성 냉매입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.</li>
+          <li><strong>안전:</strong> R290·R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.</li>
+          <li><strong>안전:</strong> {SAFETY_NOTES.R134a}</li>
         </ul>
       </section>
     </div>
