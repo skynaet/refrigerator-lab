@@ -34,7 +34,7 @@ export default function NewModelPage(){
  function spec(){return fromTemplate(tid,input);}
  function openInEditor(){try{localStorage.setItem(WIZARD_KEY,JSON.stringify(spec()));localStorage.removeItem(draftKey(WIZARD_BASE));}catch{setInputError('브라우저 저장소를 쓸 수 없어 편집기로 넘길 수 없습니다. 사양서 JSON 저장을 이용하세요.');return;}router.push(`/editor?from=${WIZARD_BASE}`);}
 
- return <main className="hr-app"><header><div><small>NEW MODEL</small><h1>새 냉장고 <b>만들기</b></h1></div><nav><Link href="/models">모델 목록</Link><Link href="/editor">사양서 편집기</Link><Link href="/diagnose">고장 진단 연습</Link></nav></header>
+ return <main className="hr-app"><header><div><small>NEW MODEL</small><h1>새 냉장고 <b>만들기</b></h1></div><nav><Link href="/models">모델 목록</Link><Link href="/editor">사양서 편집기</Link><Link href="/diagnose">고장 진단 연습</Link><Link href="/calculator">현장 계산기</Link></nav></header>
  <div className="hr-summary">형태를 고르고 사양서의 외형 치수만 넣으면 부품 배치와 냉매 배관을 자동으로 만듭니다<span>계산은 모두 이 브라우저 안에서 합니다</span><b>{String(input.model)}</b></div>
  <div className="hr-work"><aside className="hr-parts"><h2>1. 형태</h2>
   {TEMPLATE_IDS.map(id=><button key={id} className={tid===id?'active':''} onClick={()=>pick(id)}>{TEMPLATES[id as keyof typeof TEMPLATES].name}</button>)}
