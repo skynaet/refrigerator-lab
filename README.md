@@ -38,7 +38,7 @@ npm run dev
 
 ## 현장 계산기 데이터
 
-단일 성분 R290·R600a·R134a는 −40~70 °C, 혼합 냉매 R410A·R404A·R407C는 각각 −40~66·67·70 °C입니다. 혼합 냉매 상한은 `min(70, floor(Tcrit − 5 K))`이며, [CoolProp의 Lemmon 의사순수 모델](https://coolprop.org/fluid_properties/fluids/R407C.html)의 기포점(Q=0)·이슬점(Q=1)을 구분합니다. R448A/R449A는 CoolProp 8.0.0에 없어 제외했고 임의의 HEOS 혼합물로 합성하지 않습니다. 저장 형식 version 1은 유지합니다.
+단일 성분 R290·R600a·R134a는 −40~70 °C, 혼합 냉매 R410A·R404A·R407C는 각각 −40~66·67·70 °C입니다. 혼합 냉매 상한은 `min(70, floor(Tcrit − 5 K))`이며, [CoolProp의 Lemmon 의사순수 모델](https://coolprop.org/fluid_properties/PurePseudoPure.html)의 기포점(Q=0)·이슬점(Q=1)을 구분합니다. R448A/R449A는 CoolProp 8.0.0에 없어 제외했고 임의의 HEOS 혼합물로 합성하지 않습니다. 저장 형식 version 1은 유지합니다.
 
 저장소 루트에서 재생성합니다(CoolProp은 npm 의존성이 아닙니다). 이미 venv가 있으면 마지막 명령만 실행합니다.
 

@@ -107,7 +107,7 @@ python3 -m venv /tmp/sat-venv
 /tmp/sat-venv/bin/python refrigerator/public/calculator/generate_saturation.py
 ```
 
-표에는 CoolProp 버전, 유체 이름(CoolProp 이름 포함), 단위(°C, 절대압 Pa), 생성 날짜, `kind`(pure/blend), 냉매별 `temperatureC` 범위·ASHRAE 안전 등급·임계온도·최대 보간 오차가 들어 있다. 최상위 `temperatureC`는 전체 한계이고 계산에는 각 유체의 범위를 쓴다. 단일 성분의 기존 `pressurePa`는 그대로 유지한다. 혼합 냉매의 `bubblePressurePa`·`dewPressurePa`와 열별 `interpolationErrorK`는 각각 Q=0·Q=1 직접 계산에서 얻는다. 출처는 [CoolProp 유체·모델 문서](https://coolprop.org/fluid_properties/fluids/R407C.html)의 Lemmon 의사순수(pseudo-pure) 모델이다.
+표에는 CoolProp 버전, 유체 이름(CoolProp 이름 포함), 단위(°C, 절대압 Pa), 생성 날짜, `kind`(pure/blend), 냉매별 `temperatureC` 범위·ASHRAE 안전 등급·임계온도·최대 보간 오차가 들어 있다. 최상위 `temperatureC`는 전체 한계이고 계산에는 각 유체의 범위를 쓴다. 단일 성분의 기존 `pressurePa`는 그대로 유지한다. 혼합 냉매의 `bubblePressurePa`·`dewPressurePa`와 열별 `interpolationErrorK`는 각각 Q=0·Q=1 직접 계산에서 얻는다. 출처는 [CoolProp 유체·모델 문서](https://coolprop.org/fluid_properties/PurePseudoPure.html)의 Lemmon 의사순수(pseudo-pure) 모델이다.
 
 | 냉매 | 종류 | ASHRAE 안전 등급 | 온도 범위(1 K 간격) | 최대 보간 오차(K, 두 열 중 큰 값) |
 |---|---|---|---|---|

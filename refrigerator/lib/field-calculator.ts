@@ -208,6 +208,23 @@ export function calculateField(input: {
   return {status: 'ok', pressureKPaAbs, saturation, basis, glideK, differenceK};
 }
 
+/**
+ * 과열도·과냉도가 음수일 때 화면 안내의 종류.
+ * - 'none': 값이 없거나 0 이상
+ * - 'measurement-error': 단일 성분이거나, 혼합 냉매에서 글라이드 범위(기포점~이슬점) 밖이라 2상으로도 설명되지 않음
+ * - 'possible-two-phase': 혼합 냉매에서 −글라이드 이상 0 미만. 배관 온도가 기포점~이슬점 사이라 2상일 수 있음(측정 오류도 가능)
+ * - 'glide-unknown': 혼합 냉매인데 반대쪽 온도가 표 범위 밖이라 글라이드를 모름. 두 가능성을 모두 안내한다.
+ * 흡입: 과열도 = 배관 − 이슬점이 [−글라이드, 0)이면 배관 온도가 [기포점, 이슬점).
+ * 액관: 과냉도 = 기포점 − 배관이 [−글라이드, 0)이면 배관 온도가 (기포점, 이슬점].
+ */
+export type NegativeDifferenceKind = 'none' | 'measurement-error' | 'possible-two-phase' | 'glide-unknown';
+export function negativeDifferenceKind(differenceK: number | null, basis: SaturationBasis, glideK: number | null): NegativeDifferenceKind {
+  if (differenceK === null || !(differenceK < 0)) return 'none';
+  if (basis === 'pure') return 'measurement-error';
+  if (glideK === null) return 'glide-unknown';
+  return differenceK >= -glideK ? 'possible-two-phase' : 'measurement-error';
+}
+
 // 저장소에 남기는 마지막 선택값. 측정값은 저장하지 않는다.
 export type CalculatorPrefs = {readonly refrigerant: RefrigerantId; readonly unit: PressureUnit; readonly side: MeasurementSide};
 export const DEFAULT_CALCULATOR_PREFS: CalculatorPrefs = {refrigerant: 'R290', unit: 'kPa', side: 'suction'};

@@ -48,7 +48,9 @@
 .calc-other-units{font-size:13px;color:#abc4cd}
 .calc-link-note{margin-top:14px;font-size:13px;color:#abc4cd}
 .calc-link-note a,.calc-sources a{text-decoration:underline}
-.calc-link-note a,.calc-sources a{display:inline-flex;align-items:center;min-height:44px}
+/* 문장 안 링크는 inline 그대로 둔다. 인라인 요소의 세로 padding은 줄 상자 높이를 바꾸지 않으므로 줄 간격은 그대로이고,
+   글자 상자(약 1.1em 이상) + 위아래 padding으로 누를 수 있는 높이를 44px 이상으로 늘린다. 가로 크기는 바뀌지 않는다. */
+.calc-link-note a,.calc-sources a{padding-block:calc(22px - .55em)}
 .calc-sources ul{padding-left:20px;margin:0;color:#abc4cd;list-style:disc}
 .calc-sources li+li{margin-top:8px}
 .calc-sources code{overflow-wrap:anywhere}

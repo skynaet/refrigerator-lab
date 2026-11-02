@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   ATMOSPHERE_RANGE_KPA, DEFAULT_CALCULATOR_PREFS, PRESSURE_UNITS, REFRIGERANTS, REFRIGERANT_IDS, SATURATION_LIBRARY, STANDARD_ATMOSPHERE_KPA,
-  absoluteKPaToGauge, calculateField, gaugeToAbsoluteKPa, measurementPoints, parseCalculatorPrefs, parseDecimal,
+  absoluteKPaToGauge, calculateField, gaugeToAbsoluteKPa, measurementPoints, negativeDifferenceKind, parseCalculatorPrefs, parseDecimal,
   saturationPressureKPa, saturationPressuresKPa, saturationTemperatureC, serializeCalculatorPrefs, subcoolingK, superheatK, toggleSign,
 } from '../lib/field-calculator.ts';
 import {FIELD_CALCULATOR_KEY} from '../lib/storage-keys.ts';
@@ -286,6 +286,36 @@ for (const id of ['R410A', 'R404A', 'R407C']) {
   assert.ok(saturationPressuresKPa(data, data.temperatureC.max + 0.1).every(row => row.pressure.status === 'above'));
 }
 assert.ok(saturationPressuresKPa(REFRIGERANTS.R410A, 68).every(row => row.pressure.status === 'above'), 'R410A 68 °C 외삽 금지');
+
+// 음수 과열도·과냉도 안내: 혼합 냉매는 −글라이드 이상이면 2상 가능, 그 아래는 측정 오류, 글라이드를 모르면 두 안내 모두.
+assert.equal(negativeDifferenceKind(null, 'dew', 5), 'none', '온도 미입력');
+for (const basis of ['pure', 'dew', 'bubble']) {
+  assert.equal(negativeDifferenceKind(0, basis, basis === 'pure' ? 0 : 5), 'none', `${basis}: 0은 음수 아님`);
+  assert.equal(negativeDifferenceKind(-0, basis, basis === 'pure' ? 0 : 5), 'none', `${basis}: −0은 음수 아님`);
+  assert.equal(negativeDifferenceKind(3, basis, basis === 'pure' ? 0 : 5), 'none');
+}
+for (const basis of ['dew', 'bubble']) {
+  assert.equal(negativeDifferenceKind(-0.01, basis, 5), 'possible-two-phase', `${basis}: 0 바로 아래`);
+  assert.equal(negativeDifferenceKind(-5, basis, 5), 'possible-two-phase', `${basis}: −글라이드 경계 포함`);
+  assert.equal(negativeDifferenceKind(-5.01, basis, 5), 'measurement-error', `${basis}: −글라이드 아래`);
+  assert.equal(negativeDifferenceKind(-0.01, basis, null), 'glide-unknown', `${basis}: 글라이드 모름`);
+  assert.equal(negativeDifferenceKind(-50, basis, null), 'glide-unknown', `${basis}: 글라이드 모르면 크게 음수여도 두 안내`);
+  assert.equal(negativeDifferenceKind(0, basis, null), 'none');
+}
+// 단일 성분은 글라이드 0이라 0 미만은 모두 측정 오류 안내(기존 동작).
+assert.equal(negativeDifferenceKind(-0.01, 'pure', 0), 'measurement-error');
+assert.equal(negativeDifferenceKind(-10, 'pure', 0), 'measurement-error');
+// 통합: R407C 800 kPa(a)에서 배관 온도가 기포점~이슬점 사이이면 2상 가능, 밖이면 측정 오류.
+for (const [side, pipeC, kind] of [
+  ['suction', (bubbleC + dewC) / 2, 'possible-two-phase'], ['suction', bubbleC - 0.1, 'measurement-error'],
+  ['liquid', (bubbleC + dewC) / 2, 'possible-two-phase'], ['liquid', dewC + 0.1, 'measurement-error'],
+]) {
+  const calc = calculateField({refrigerant: 'R407C', side, gauge: 800 - 101.325, unit: 'kPa', pipeC, atmosphereKPa: 101.325});
+  assert.ok(calc.differenceK < 0);
+  assert.equal(negativeDifferenceKind(calc.differenceK, calc.basis, calc.glideK), kind, `R407C ${side} ${pipeC}°C`);
+}
+const r290Negative = calculateField({refrigerant: 'R290', side: 'suction', gauge: tableKPa('R290', 0) - 101.325, unit: 'kPa', pipeC: -0.5, atmosphereKPa: 101.325});
+assert.equal(negativeDifferenceKind(r290Negative.differenceK, r290Negative.basis, r290Negative.glideK), 'measurement-error', 'R290 음수 과열도');
 assert.equal(saturationPressuresKPa(REFRIGERANTS.R290, 0)[0].basis, 'pure', '단일 성분 역계산은 한 압력');
 
 // 12. 휴대폰 입력 해석
@@ -322,4 +352,4 @@ for (const refrigerant of ['R410A', 'R404A', 'R407C']) {
 }
 assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"R448A","unit":"bar","side":"liquid"}'), {...DEFAULT_CALCULATOR_PREFS, unit: 'bar', side: 'liquid'});
 
-console.log('현장 계산기 검사 통과: 생성 포화표(CoolProp 8.0.0, R290·R600a·R134a·R410A·R404A·R407C) 메타데이터와 기존 표 일치, R134a 공개값 확인, 단조성·왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호와 기포점·이슬점 기준·글라이드, 입력 해석, 선택값 저장.');
+console.log('현장 계산기 검사 통과: 생성 포화표(CoolProp 8.0.0, R290·R600a·R134a·R410A·R404A·R407C) 메타데이터와 기존 표 일치, R134a 공개값 확인, 단조성·왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호와 기포점·이슬점 기준·글라이드, 음수 안내 경계, 입력 해석, 선택값 저장.');
