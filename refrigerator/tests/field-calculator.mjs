@@ -21,34 +21,46 @@ assert.match(table.generated, /^\d{4}-\d{2}-\d{2}$/);
 assert.match(table.units.pressure, /^Pa absolute/);
 assert.match(table.units.temperature, /^degC/);
 assert.deepEqual(table.temperatureC, {min: -40, max: 70, step: 1});
-const expectedIds = ['R290', 'R600a', 'R134a', 'R410A', 'R404A', 'R407C'];
+const expectedIds = ['R290', 'R600a', 'R134a', 'R32', 'R22', 'R410A', 'R404A', 'R407C'];
+const pureIds = ['R290', 'R600a', 'R134a', 'R32', 'R22'];
 assert.deepEqual(table.fluids.map(f => f.id), expectedIds);
 assert.deepEqual(REFRIGERANT_IDS, expectedIds);
 assert.deepEqual(table.excludedFluids.ids, ['R448A', 'R449A']);
 assert.match(table.excludedFluids.reason, /CoolProp 8\.0\.0에 없어 제외/);
 assert.match(table.blendTemperatureRule, /floor/);
+assert.match(table.pureTemperatureRule, /floor/);
 for (const id of table.excludedFluids.ids) assert.ok(!REFRIGERANT_IDS.includes(id), `${id}: 미지원 냉매 제외`);
-const expectedSafety = {R290: 'A3', R600a: 'A3', R134a: 'A1', R410A: 'A1', R404A: 'A1', R407C: 'A1'};
-const expectedMaxC = {R290: 70, R600a: 70, R134a: 70, R410A: 66, R404A: 67, R407C: 70};
+// ASHRAE 34: R32 = A2L(약가연), R22 = A1
+const expectedSafety = {R290: 'A3', R600a: 'A3', R134a: 'A1', R32: 'A2L', R22: 'A1', R410A: 'A1', R404A: 'A1', R407C: 'A1'};
+const expectedMaxC = {R290: 70, R600a: 70, R134a: 70, R32: 70, R22: 70, R410A: 66, R404A: 67, R407C: 70};
+// 새 단일 성분은 CoolProp 이름이 냉매 번호와 같다. 임계온도는 공개값(R32 약 78.1 °C, R22 약 96.1 °C)과 맞아야 한다.
+for (const [id, criticalC] of [['R32', 78.1], ['R22', 96.1]]) {
+  const fluid = table.fluids.find(f => f.id === id);
+  assert.equal(fluid.coolPropName, id);
+  close(fluid.criticalTemperatureC, criticalC, 0.1, `${id} 임계온도`);
+}
 // 단일 성분은 이전 points API 유지, 혼합 냉매는 두 열을 명시한다.
 const columns = data => data.kind === 'pure' ? {pressurePa: data.points}
   : {bubblePressurePa: data.bubblePoints, dewPressurePa: data.dewPoints};
 for (const fluid of table.fluids) {
   const data = REFRIGERANTS[fluid.id];
-  const pure = ['R290', 'R600a', 'R134a'].includes(fluid.id);
+  const pure = pureIds.includes(fluid.id);
   assert.equal(fluid.kind, pure ? 'pure' : 'blend');
   assert.equal(data.kind, fluid.kind);
   assert.deepEqual(fluid.temperatureC, {min: -40, max: expectedMaxC[fluid.id], step: 1});
   assert.deepEqual(data.temperatureC, fluid.temperatureC);
   assert.equal(fluid.ashraeSafetyGroup, expectedSafety[fluid.id]);
   assert.equal(data.safetyGroup, expectedSafety[fluid.id]);
-  if (pure) assert.ok(fluid.criticalTemperatureC > 80, `${fluid.id}: 기존 임계 여유`);
-  else {
+  // 단일 성분·혼합 모두 같은 범위 규칙과 임계 여유(R32는 약 8 K, 나머지 단일 성분은 기존처럼 10 K 넘게)
+  assert.equal(fluid.temperatureC.max, Math.min(70, Math.floor(fluid.criticalTemperatureC - 5)));
+  assert.ok(fluid.criticalTemperatureC - fluid.temperatureC.max >= 5, `${fluid.id}: 임계 여유 5 K 이상`);
+  if (pure) {
+    assert.equal(Object.hasOwn(fluid, 'bubblePressurePa'), false);
+    assert.equal(Object.hasOwn(fluid, 'dewPressurePa'), false);
+  } else {
     assert.equal(fluid.coolPropName, fluid.id);
     assert.equal(fluid.model, 'Lemmon pseudo-pure');
     assert.equal(Object.hasOwn(fluid, 'pressurePa'), false, '혼합 냉매를 단일 열로 표현하지 않음');
-    assert.equal(fluid.temperatureC.max, Math.min(70, Math.floor(fluid.criticalTemperatureC - 5)));
-    assert.ok(fluid.criticalTemperatureC - fluid.temperatureC.max >= 5, `${fluid.id}: 임계 여유 5 K 이상`);
     fluid.bubblePressurePa.forEach((p, i) => {
       assert.ok(p >= fluid.dewPressurePa[i], `${fluid.id}: 기포점 ≥ 이슬점`);
       assert.ok(p > fluid.dewPressurePa[i], `${fluid.id}: 지오트로픽·R410A 근사 공비도 실제 > 확인`);
@@ -135,6 +147,40 @@ for (const [id, t, bubble, dew] of [
   }
 }
 
+// R32·R22 독립 확인: CoolProp 8.0.0 PropsSI('P','T',T+273.15,'Q',0,id) 직접 출력(Pa).
+// 정수 온도(−20·0·40·60 °C)는 ±0.06 Pa(표 반올림 0.05 Pa + 여유), 비정수 온도는 압력 → 온도 ±0.001 K.
+// 값은 /tmp/sat-venv의 CoolProp 8.0.0으로 직접 뽑았다. 비어 있으면 실패한다(임의 값 금지).
+const pureSpots = {
+  R32: {
+    integer: [[-20, 405752.612907], [0, 813101.261181], [40, 2478313.211938], [60, 3933230.524280]],
+    midpoint: [[-9.5, 592805.083659], [25.5, 1712356.434412]],
+  },
+  R22: {
+    integer: [[-20, 245312.648631], [0, 497987.891645], [40, 1533579.711603], [60, 2427487.440167]],
+    midpoint: [[-9.5, 361096.254266], [25.5, 1058066.262485]],
+  },
+};
+for (const [id, {integer, midpoint}] of Object.entries(pureSpots)) {
+  assert.deepEqual(integer.map(([t]) => t), [-20, 0, 40, 60], `${id}: CoolProp 직접값 스폿 체크(−20·0·40·60 °C) 필요`);
+  assert.ok(midpoint.length >= 1, `${id}: 비정수 온도 CoolProp 직접값 필요`);
+  const points = REFRIGERANTS[id].points;
+  for (const [t, pa] of integer) {
+    const pressure = saturationPressureKPa(points, t);
+    assert.equal(pressure.status, 'ok');
+    close(pressure.value * 1000, pa, 0.06, `${id} ${t}°C 직접 압력(Pa)`);
+  }
+  for (const [t, pa] of midpoint) close(saturationTemperatureC(points, pa / 1000).value, t, 0.001, `${id} ${t}°C 중간점 직접값`);
+}
+// 냉매 사이의 압력 관계: R32는 R410A(기포점)보다 약간 높고, R22는 R410A(이슬점)보다 훨씬 낮다.
+for (const t of [0, 40]) {
+  const r32 = saturationPressureKPa(REFRIGERANTS.R32.points, t).value;
+  const r410a = saturationPressureKPa(REFRIGERANTS.R410A.bubblePoints, t).value;
+  assert.ok(r32 > r410a && r32 < r410a * 1.05, `${t}°C: R32가 R410A보다 약간 높음`);
+}
+for (const [t] of REFRIGERANTS.R410A.dewPoints) {
+  assert.ok(saturationPressureKPa(REFRIGERANTS.R22.points, t).value < saturationPressureKPa(REFRIGERANTS.R410A.dewPoints, t).value, `${t}°C: R22 < R410A`);
+}
+
 for (const refrigerantId of REFRIGERANT_IDS) {
   for (const [column, points] of Object.entries(columns(REFRIGERANTS[refrigerantId]))) {
     const id = `${refrigerantId} ${column}`;
@@ -219,6 +265,26 @@ close(r600aLiquid.differenceK, 3, 1e-6, 'R600a 과냉도');
 const r134aLiquid = calculateField({refrigerant: 'R134a', side: 'liquid', gauge: (tableKPa('R134a', 40) - 101.325) / 1000, unit: 'MPa', pipeC: 35, atmosphereKPa: 101.325});
 close(r134aLiquid.saturation.value, 40, 1e-6, 'R134a 액관 포화온도');
 close(r134aLiquid.differenceK, 5, 1e-6, 'R134a 과냉도');
+// R32·R22: 단일 성분이라 흡입·액관 모두 포화온도 기준, 글라이드 0, 음수는 측정 확인 안내.
+for (const id of ['R32', 'R22']) {
+  const suction = calculateField({refrigerant: id, side: 'suction', gauge: tableKPa(id, 5) - 101.325, unit: 'kPa', pipeC: 12, atmosphereKPa: 101.325});
+  assert.equal(suction.status, 'ok');
+  assert.equal(suction.basis, 'pure');
+  assert.equal(suction.glideK, 0, `${id}: 단일 성분 글라이드 0`);
+  close(suction.saturation.value, 5, 1e-6, `${id} 흡입 포화온도`);
+  close(suction.differenceK, 7, 1e-6, `${id} 과열도`);
+  const liquid = calculateField({refrigerant: id, side: 'liquid', gauge: (tableKPa(id, 45) - 101.325) / 1000, unit: 'MPa', pipeC: 40, atmosphereKPa: 101.325});
+  close(liquid.saturation.value, 45, 1e-6, `${id} 액관 포화온도`);
+  close(liquid.differenceK, 5, 1e-6, `${id} 과냉도`);
+  const negative = calculateField({refrigerant: id, side: 'suction', gauge: tableKPa(id, 5) - 101.325, unit: 'kPa', pipeC: 4, atmosphereKPa: 101.325});
+  assert.equal(negativeDifferenceKind(negative.differenceK, negative.basis, negative.glideK), 'measurement-error', `${id} 음수 과열도`);
+  const above = calculateField({refrigerant: id, side: 'liquid', gauge: tableKPa(id, 70) + 0.001 - 101.325, unit: 'kPa', pipeC: 30, atmosphereKPa: 101.325});
+  assert.equal(above.status, 'out-of-range');
+  assert.equal(above.side, 'above');
+  assert.equal(above.limitKPaAbs, tableKPa(id, 70));
+  const reverse = saturationPressuresKPa(REFRIGERANTS[id], 70.1);
+  assert.deepEqual(reverse.map(row => [row.basis, row.pressure.status]), [['pure', 'above']], `${id} 70 °C 초과 외삽 금지`);
+}
 // 예전 0~30 °C 공백 구간: 이제 1 K 간격 표 안에서 계산된다.
 const midRange = calculateField({refrigerant: 'R290', side: 'liquid', gauge: (tableKPa('R290', 15) + tableKPa('R290', 16)) / 2 - 101.325, unit: 'kPa', pipeC: 10, atmosphereKPa: 101.325});
 assert.equal(midRange.status, 'ok');
@@ -343,7 +409,7 @@ assert.deepEqual(parseCalculatorPrefs(serializeCalculatorPrefs({refrigerant: 'R1
 assert.deepEqual(parseCalculatorPrefs(JSON.stringify({version: 1, refrigerant: 'toString', unit: 'bar'})), {...DEFAULT_CALCULATOR_PREFS, unit: 'bar'}, '프로토타입 키 거부');
 
 assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"R134a","unit":"MPa","side":"liquid"}'), {refrigerant: 'R134a', unit: 'MPa', side: 'liquid'});
-for (const refrigerant of ['R410A', 'R404A', 'R407C']) {
+for (const refrigerant of ['R32', 'R22', 'R410A', 'R404A', 'R407C']) {
   for (const side of ['suction', 'liquid']) {
     const prefs = {refrigerant, unit: 'bar', side};
     assert.equal(JSON.parse(serializeCalculatorPrefs(prefs)).version, 1);
@@ -351,5 +417,9 @@ for (const refrigerant of ['R410A', 'R404A', 'R407C']) {
   }
 }
 assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"R448A","unit":"bar","side":"liquid"}'), {...DEFAULT_CALCULATOR_PREFS, unit: 'bar', side: 'liquid'});
+// 새 냉매를 손으로 쓴 version 1 저장값도 복원하고, 소문자 등 다른 표기는 기본값으로 둔다.
+assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"R32","unit":"kgfcm2","side":"liquid"}'), {refrigerant: 'R32', unit: 'kgfcm2', side: 'liquid'});
+assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"R22","unit":"psi","side":"suction"}'), {refrigerant: 'R22', unit: 'psi', side: 'suction'});
+assert.deepEqual(parseCalculatorPrefs('{"version":1,"refrigerant":"r32","unit":"bar","side":"suction"}'), {...DEFAULT_CALCULATOR_PREFS, unit: 'bar'});
 
-console.log('현장 계산기 검사 통과: 생성 포화표(CoolProp 8.0.0, R290·R600a·R134a·R410A·R404A·R407C) 메타데이터와 기존 표 일치, R134a 공개값 확인, 단조성·왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호와 기포점·이슬점 기준·글라이드, 음수 안내 경계, 입력 해석, 선택값 저장.');
+console.log('현장 계산기 검사 통과: 생성 포화표(CoolProp 8.0.0, R290·R600a·R134a·R32·R22·R410A·R404A·R407C) 메타데이터와 기존 표 일치, R134a 공개값 확인, 단조성·왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호와 기포점·이슬점 기준·글라이드, 음수 안내 경계, 입력 해석, 선택값 저장.');

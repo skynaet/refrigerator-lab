@@ -2,9 +2,9 @@
 //
 // 포화 데이터 출처: public/calculator/saturation-table.json
 // - public/calculator/generate_saturation.py가 CoolProp 8.0.0의 PropsSI('P','T',T,'Q',0,fluid)로 만든다.
-//   1 K 간격, 절대압 Pa(0.1 Pa 반올림). R290·R600a·R134a는 단일 성분이라 기포점(Q=0)과
+//   1 K 간격, 절대압 Pa(0.1 Pa 반올림). R290·R600a·R134a·R32·R22는 단일 성분이라 기포점(Q=0)과
 //   이슬점(Q=1) 압력이 같다. R410A·R404A·R407C는 Lemmon 의사순수 모델의 두 열을 따로 쓴다.
-//   단일 성분은 −40…70 °C, 혼합 냉매는 −40…min(70, floor(Tcrit − 5 K)) °C다.
+//   범위는 모든 냉매가 −40…min(70, floor(Tcrit − 5 K)) °C다(단일 성분은 모두 −40…70 °C).
 // - tests/field-calculator.mjs가 저장소의 기존 CoolProp 표(public/reference/cycle-table.json,
 //   public/design/r600a-cycle-grid.json)와 공통 온도에서 일치하는지 검사한다.
 //
@@ -12,13 +12,13 @@
 // 최대 오차는 0.001 K 미만이다(생성 스크립트가 각 열을 기록·검사). 표 범위 밖은 외삽하지 않는다.
 import saturationTable from '../public/calculator/saturation-table.json' with {type: 'json'};
 
-export type RefrigerantId = 'R290' | 'R600a' | 'R134a' | 'R410A' | 'R404A' | 'R407C';
+export type RefrigerantId = 'R290' | 'R600a' | 'R134a' | 'R32' | 'R22' | 'R410A' | 'R404A' | 'R407C';
 /** [포화온도 °C, 절대 포화압력 kPa(a)] — 온도 오름차순 */
 export type SaturationPoint = readonly [temperatureC: number, pressureKPaAbs: number];
 export type RefrigerantData = {
   readonly id: RefrigerantId;
   readonly label: string;
-  /** ASHRAE 34 안전 등급 (A1 불연, A3 고가연) */
+  /** ASHRAE 34 안전 등급 (A1 불연, A2L 약가연, A3 고가연) */
   readonly safetyGroup: string;
   readonly temperatureC: {readonly min: number; readonly max: number; readonly step: number};
   readonly source: string;
@@ -29,7 +29,7 @@ export type RefrigerantData = {
 
 export const SATURATION_TABLE_PATH = 'public/calculator/saturation-table.json';
 export const SATURATION_LIBRARY = saturationTable.library;
-const REFRIGERANT_ORDER: readonly RefrigerantId[] = ['R290', 'R600a', 'R134a', 'R410A', 'R404A', 'R407C'];
+const REFRIGERANT_ORDER: readonly RefrigerantId[] = ['R290', 'R600a', 'R134a', 'R32', 'R22', 'R410A', 'R404A', 'R407C'];
 
 function buildRefrigerants(): Record<RefrigerantId, RefrigerantData> {
   const result: Partial<Record<RefrigerantId, RefrigerantData>> = {};

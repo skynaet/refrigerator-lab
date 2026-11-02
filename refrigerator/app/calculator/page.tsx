@@ -20,6 +20,8 @@ const SAFETY_NOTES: Readonly<Record<RefrigerantId, string>> = {
   R290: 'R290은 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
   R600a: 'R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
   R134a: 'R134a는 불연성(A1)이지만 고압 용기·배관은 그대로 위험합니다. 밀폐 공간에서는 공기를 밀어내므로 환기하고, 화염·뜨거운 표면에 닿으면 유해한 분해 생성물이 생길 수 있습니다. 대기로 방출하지 말고 회수 장비로 회수하며, 제조사 서비스 절차와 현지 법규를 따르세요.',
+  R32: 'R32는 약가연성 냉매(A2L)입니다. 화기·점화원을 관리하고 환기하며, A2L 냉매에 대응하는 회수·진공 장비를 사용하세요. 운전 압력이 R410A보다도 약간 높으므로 그 압력에 맞는 게이지·호스를 쓰세요. 대기로 방출하지 말고 회수하며, 제조사 서비스 절차와 현지 법규를 따르세요.',
+  R22: 'R22는 오존층 파괴 물질(HCFC)이므로 대기로 방출하지 말고 회수 장비로 회수하세요. 신규 생산·수입이 규제되어 재생 냉매를 쓰게 될 수 있습니다. 다른 냉매(특히 R410A)와 섞거나 대신 충전하지 마세요. 주로 광유(미네랄 오일) 계통이므로 다른 냉매용 오일·장비와 구분하세요. 불연성(A1)이지만 고압 용기·배관은 위험하고, 밀폐 공간에서는 공기를 밀어내므로 환기하며, 화염·뜨거운 표면에 닿으면 유해한 분해 생성물이 생길 수 있습니다. 제조사 서비스 절차와 현지 법규를 따르세요.',
   R410A: `R410A는 R22 등보다 운전 압력이 훨씬 높으므로 R410A 전용 게이지·호스·회수 장비를 사용하세요. ${BLEND_SAFETY_NOTE}`,
   R404A: `R404A는 ${BLEND_SAFETY_NOTE}`,
   R407C: `R407C는 ${BLEND_SAFETY_NOTE}`,
@@ -55,10 +57,10 @@ function format(value: number, digits: number) {
 const formatGauge = (absoluteKPa: number, unit: PressureUnit, atmosphereKPa: number) =>
   `${format(absoluteKPaToGauge(absoluteKPa, unit, atmosphereKPa), PRESSURE_UNITS[unit].digits)} ${PRESSURE_UNITS[unit].label}`;
 
-function Segmented<T extends string>({legend, name, value, options, onChange}: {
-  legend: string; name: string; value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void;
+function Segmented<T extends string>({legend, name, value, options, onChange, className}: {
+  legend: string; name: string; value: T; options: readonly {value: T; label: ReactNode}[]; onChange: (value: T) => void; className?: string;
 }) {
-  return <fieldset className="calc-segmented">
+  return <fieldset className={className ? `calc-segmented ${className}` : 'calc-segmented'}>
     <legend>{legend}</legend>
     <div>{options.map(option => <label key={option.value} className={value === option.value ? 'calc-checked' : ''}>
       <input type="radio" name={name} value={option.value} checked={value === option.value} onChange={() => onChange(option.value)}/>
@@ -148,7 +150,7 @@ export default function CalculatorPage() {
 
       <section className="calc-panel" aria-labelledby="calc-setup-title">
         <h2 id="calc-setup-title">측정 조건</h2>
-        <Segmented legend="냉매" name="refrigerant" value={refrigerant} onChange={value => updatePrefs({refrigerant: value})}
+        <Segmented legend="냉매" name="refrigerant" className="calc-refrigerants" value={refrigerant} onChange={value => updatePrefs({refrigerant: value})}
           options={REFRIGERANT_IDS.map(id => ({value: id, label: REFRIGERANTS[id].label}))}/>
         <p className="calc-help">계산 범위: {basisTemperature} {format(minC, 0)}~{format(maxC, 0)} °C ({formatGauge(minKPa, unit, atmosphere)} ~ {formatGauge(maxKPa, unit, atmosphere)}). 범위 밖은 계산하지 않습니다.
           {blend && ' 혼합 냉매는 흡입 과열도에 이슬점, 액관 과냉도에 기포점을 사용합니다. 측정 위치에 따라 압력 범위가 달라집니다.'}</p>
@@ -233,12 +235,12 @@ export default function CalculatorPage() {
       <section className="calc-panel calc-sources" aria-labelledby="calc-source-title">
         <h2 id="calc-source-title">계산 근거와 주의</h2>
         <ul>
-          <li>포화 데이터: {SATURATION_LIBRARY}로 만든 <code>{SATURATION_TABLE_PATH}</code>(1 K 간격, 절대압)을 씁니다. 생성 스크립트 <code>generate_saturation.py</code>가 같은 폴더에 있어 다시 만들 수 있습니다. R290·R600a·R134a는 단일 성분이라 기포점과 이슬점 압력이 같고 범위는 −40~70 °C입니다. R410A·R404A·R407C는 Lemmon 의사순수 모델의 기포점·이슬점 열을 구분하며, 상한은 임계온도보다 5 K 이상 낮춘 66·67·70 °C(하한 −40 °C)입니다. R448A·R449A는 CoolProp 8.0.0에 없어 제외했습니다. <a href="https://coolprop.org/fluid_properties/PurePseudoPure.html">CoolProp 모델 설명</a></li>
+          <li>포화 데이터: {SATURATION_LIBRARY}로 만든 <code>{SATURATION_TABLE_PATH}</code>(1 K 간격, 절대압)을 씁니다. 생성 스크립트 <code>generate_saturation.py</code>가 같은 폴더에 있어 다시 만들 수 있습니다. R290·R600a·R134a·R32·R22는 단일 성분이라 기포점과 이슬점 압력이 같고 범위는 −40~70 °C입니다(임계온도보다 5 K 이상 낮은 범위). R410A·R404A·R407C는 Lemmon 의사순수 모델의 기포점·이슬점 열을 구분하며, 상한은 임계온도보다 5 K 이상 낮춘 66·67·70 °C(하한 −40 °C)입니다. R448A·R449A는 CoolProp 8.0.0에 없어 제외했습니다. <a href="https://coolprop.org/fluid_properties/PurePseudoPure.html">CoolProp 모델 설명</a></li>
           <li>표 점 사이는 로그 압력과 절대온도의 역수를 선형 보간합니다(CoolProp 직접 계산과의 차이 0.001 K 미만). 표 범위 밖은 외삽하지 않습니다.</li>
           <li>게이지·온도계의 오차, 배관 표면과 냉매의 온도 차이, 운전 안정 여부에 따라 결과가 달라집니다. 운전이 안정된 뒤 측정하세요.</li>
           <li><strong>안전:</strong> R290·R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.</li>
           <li><strong>안전:</strong> {SAFETY_NOTES.R134a}</li>
-          <li>혼합 냉매의 안전 안내는 냉매 선택 아래에서 확인하세요. 근거: <a href="https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch29/F25_Ch29_si.aspx">ASHRAE 안전 등급</a>, <a href="https://www.chemours.com/en/-/media/files/freon/freon-410a-407c-push-bulletin.pdf">제조사 취급 안내</a>, <a href="https://www.bitzer.de/shared_media/html/db-200/en-GB/9830669998326027.html">제조사 액상 충전 안내</a>.</li>
+          <li>R32(약가연성 A2L)·R22(오존층 파괴 물질 HCFC, A1)와 혼합 냉매의 안전 안내는 냉매 선택 아래에서 확인하세요. 근거: <a href="https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch29/F25_Ch29_si.aspx">ASHRAE 안전 등급</a>, <a href="https://www.chemours.com/en/-/media/files/freon/freon-410a-407c-push-bulletin.pdf">제조사 취급 안내</a>, <a href="https://www.bitzer.de/shared_media/html/db-200/en-GB/9830669998326027.html">제조사 액상 충전 안내</a>.</li>
         </ul>
       </section>
     </div>
