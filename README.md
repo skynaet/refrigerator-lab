@@ -14,7 +14,7 @@
 | `/new` | **새로 만들기** | 형태(언더카운터·후면 응축기 / 리치인·하부 응축 유닛 / 리치인·상부 응축 유닛 / 리치인 2도어)를 고르고 외형 치수만 넣으면 부품 배치와 냉매 배관을 자동으로 만들고 검사합니다. 결과는 편집기로 넘겨 다듬을 수 있습니다. |
 | `/editor` | **사양서 편집기** | 브라우저에서 사양서 값을 고치면 바로 3D를 다시 만들고 검사합니다. 도면(그림·PDF)을 배경에 깔고 부품을 도면 위치로 끌어 놓을 수도 있습니다. 압축기는 데이터시트 기반 카탈로그에서 고를 수 있고, STEP·IGES·STL·OBJ CAD 파일을 부품으로 가져와 배관을 연결할 수 있습니다. 작업은 브라우저에 자동 저장되고, JSON·OBJ 파일로 내려받을 수 있습니다. 서버로 보내는 데이터는 없습니다. |
 | `/diagnose` | **냉매 회로 고장 진단 연습** | 모세관 방식의 대표 고장 6가지. 기본 증상에서 시작해 필요한 확인 결과를 하나씩 열고 원인을 고릅니다. 답한 뒤 핵심 단서의 확인 여부, 2D 회로의 고장 위치, 현장 확인 순서·안전 안내·오답 비교를 제공합니다. 브라우저에 정오답·확인 횟수를 기록하고 누적 성적·평균 확인 횟수를 보여 줍니다. |
-| `/calculator` | **과열도·과냉도 현장 계산기** | 휴대폰용 계산기. 냉매(R290·R600a·R134a), 게이지 압력(kPa·MPa·bar·psig·kgf/cm², 표준 대기압 101.325 kPa 기준이며 변경 가능), 배관 온도를 넣으면 포화온도와 과열도(흡입관) 또는 과냉도(액관)를 바로 계산하고, 온도에서 포화압력도 구합니다. 포화 데이터는 CoolProp 8.0.0으로 만든 −40~70 °C, 1 K 간격 표(`refrigerator/public/calculator/saturation-table.json`, 생성 스크립트 `generate_saturation.py` 포함)를 쓰고 표 범위 밖은 외삽하지 않습니다. 혼합 냉매(R404A 등)는 넣지 않았습니다. 정상 범위 판정은 기기별 서비스 데이터가 필요하다고 안내합니다. 마지막 냉매·측정 위치·단위만 브라우저에 기억합니다. |
+| `/calculator` | **과열도·과냉도 현장 계산기** | 휴대폰용 계산기. 냉매(R290·R600a·R134a·R410A·R404A·R407C), 게이지 압력(kPa·MPa·bar·psig·kgf/cm², 표준 대기압 101.325 kPa 기준이며 변경 가능), 배관 온도를 넣으면 포화온도와 과열도(흡입관) 또는 과냉도(액관)를 바로 계산하고, 온도에서 포화압력도 구합니다. 포화 데이터는 CoolProp 8.0.0으로 만든 냉매별 범위의 1 K 간격 표(`refrigerator/public/calculator/saturation-table.json`, 생성 스크립트 `generate_saturation.py` 포함)를 쓰고 표 범위 밖은 외삽하지 않습니다. 혼합 냉매는 흡입 과열도에 이슬점, 액관 과냉도에 기포점을 쓰고 같은 압력의 온도 글라이드를 표시합니다. 역계산은 기포점·이슬점 압력을 모두 보여 줍니다. 정상 범위 판정은 기기별 서비스 데이터가 필요하다고 안내합니다. 마지막 냉매·측정 위치·단위만 브라우저에 기억합니다. |
 | `/lab` | **MONO 120** | 120L 가상 설계. 가상 제어기, 문 개방·고장·정전 시험, 배선 하네스와 I/O 참조 기판. |
 
 ## 사용하기
@@ -35,6 +35,20 @@ npm run dev
 브라우저에서 http://localhost:3000 을 엽니다. Windows에서는 `npm install` 후 저장소 폴더의 `Start-MONO120.cmd`를 더블클릭해도 됩니다.
 
 검사: `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run build`
+
+## 현장 계산기 데이터
+
+단일 성분 R290·R600a·R134a는 −40~70 °C, 혼합 냉매 R410A·R404A·R407C는 각각 −40~66·67·70 °C입니다. 혼합 냉매 상한은 `min(70, floor(Tcrit − 5 K))`이며, [CoolProp의 Lemmon 의사순수 모델](https://coolprop.org/fluid_properties/fluids/R407C.html)의 기포점(Q=0)·이슬점(Q=1)을 구분합니다. R448A/R449A는 CoolProp 8.0.0에 없어 제외했고 임의의 HEOS 혼합물로 합성하지 않습니다. 저장 형식 version 1은 유지합니다.
+
+저장소 루트에서 재생성합니다(CoolProp은 npm 의존성이 아닙니다). 이미 venv가 있으면 마지막 명령만 실행합니다.
+
+```bash
+python3 -m venv /tmp/sat-venv
+/tmp/sat-venv/bin/pip install CoolProp==8.0.0
+/tmp/sat-venv/bin/python refrigerator/public/calculator/generate_saturation.py
+```
+
+생성기는 단일 성분의 기존 압력을 유지하며, 두 열의 단조성·기포점 ≥ 이슬점·임계 여유와 전 구간의 보간 오차 < 0.05 K를 검사합니다. `cd refrigerator && npm test`의 `tests/field-calculator.mjs`는 메타데이터·기존 표 일치·CoolProp 직접값·기포점/이슬점 왕복·과열도/과냉도 기준·글라이드·외삽 금지·이전/새 선택값 복원을 확인합니다. 냉매별 안전 안내와 출처·오차·검사 방법은 [기술 문서](refrigerator/README.md)에 있습니다.
 
 ## 구성
 
