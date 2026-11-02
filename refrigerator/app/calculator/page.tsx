@@ -6,20 +6,46 @@ import Link from 'next/link';
 import {
   ATMOSPHERE_RANGE_KPA, DEFAULT_CALCULATOR_PREFS, MEASUREMENT_SIDES, PRESSURE_UNITS, PRESSURE_UNIT_IDS, REFRIGERANTS, REFRIGERANT_IDS,
   SATURATION_LIBRARY, SATURATION_TABLE_PATH,
-  STANDARD_ATMOSPHERE_KPA, absoluteKPaToGauge, calculateField, parseCalculatorPrefs, parseDecimal, saturationPressureKPa,
+  STANDARD_ATMOSPHERE_KPA, absoluteKPaToGauge, calculateField, measurementPoints, negativeDifferenceKind, parseCalculatorPrefs, parseDecimal, saturationPressuresKPa,
   serializeCalculatorPrefs, toggleSign,
 } from '@/lib/field-calculator';
-import type {CalculatorPrefs, InterpolationResult, MeasurementSide, PressureUnit, RefrigerantId} from '@/lib/field-calculator';
+import type {CalculatorPrefs, MeasurementSide, NegativeDifferenceKind, PressureUnit, RefrigerantId} from '@/lib/field-calculator';
 import {FIELD_CALCULATOR_KEY} from '@/lib/storage-keys';
 import '../hr24/style.css';
 import './calculator.css';
 
 // 선택한 냉매의 안전 안내. 등급은 ASHRAE 34 분류이며, 세부 절차는 제조사 서비스 절차와 현지 법규를 따른다.
+const BLEND_SAFETY_NOTE = '불연성(A1)이지만 고압 용기·배관은 위험합니다. 밀폐 공간에서는 산소 결핍 위험이 있으므로 환기하고, 화염·뜨거운 표면에 닿으면 유해한 분해 생성물이 생길 수 있습니다. 대기로 방출하지 말고 회수하세요. 혼합 냉매는 조성 변화를 막기 위해 액상으로 충전하는 것이 제조사의 일반적 권장입니다. 제조사 충전·서비스 절차와 현지 법규를 따르세요.';
 const SAFETY_NOTES: Readonly<Record<RefrigerantId, string>> = {
   R290: 'R290은 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
   R600a: 'R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.',
   R134a: 'R134a는 불연성(A1)이지만 고압 용기·배관은 그대로 위험합니다. 밀폐 공간에서는 공기를 밀어내므로 환기하고, 화염·뜨거운 표면에 닿으면 유해한 분해 생성물이 생길 수 있습니다. 대기로 방출하지 말고 회수 장비로 회수하며, 제조사 서비스 절차와 현지 법규를 따르세요.',
+  R410A: `R410A는 R22 등보다 운전 압력이 훨씬 높으므로 R410A 전용 게이지·호스·회수 장비를 사용하세요. ${BLEND_SAFETY_NOTE}`,
+  R404A: `R404A는 ${BLEND_SAFETY_NOTE}`,
+  R407C: `R407C는 ${BLEND_SAFETY_NOTE}`,
 };
+
+// 음수 과열도·과냉도 안내. 판정은 lib의 negativeDifferenceKind가 하고, 여기서는 문구만 고른다.
+// 단일 성분 문구는 기존 그대로다. 혼합 냉매는 같은 압력의 2상 온도가 기포점~이슬점 사이이므로 2상 가능성을 함께 안내한다.
+const SUCTION_CHECKS = '온도 센서 접촉·보온, 압력과 온도의 측정 위치, 게이지 영점, 냉매 종류와 단위';
+const LIQUID_CHECKS = '측정 위치(토출관이 아닌 액관인지), 센서 접촉, 게이지 영점, 냉매 종류와 단위';
+const SUCTION_TWO_PHASE = '흡입관에 액이 섞인 2상 상태일 수 있습니다(액백 가능). 압축기 보호를 위해 운전 상태를 확인하세요.';
+const LIQUID_TWO_PHASE = '액관에서 응축이 덜 끝난 2상 상태일 수 있습니다(플래시 가스: 냉매 부족·응축 불량 등 가능).';
+function negativeWarning(side: MeasurementSide, blend: boolean, kind: NegativeDifferenceKind): string {
+  if (!blend) {
+    return side === 'suction'
+      ? `음수: 흡입관 온도가 포화온도보다 낮습니다. 과열 증기에서는 생길 수 없으므로 ${SUCTION_CHECKS}를 다시 확인하세요.`
+      : `음수: 액관 온도가 고압 포화온도보다 높습니다. 액냉매에서는 생길 수 없으므로 ${LIQUID_CHECKS}를 다시 확인하세요.`;
+  }
+  if (side === 'suction') {
+    if (kind === 'possible-two-phase') return `음수: 흡입관 온도가 이슬점 온도보다 낮고 같은 압력의 기포점 온도 이상입니다(글라이드 범위 안). ${SUCTION_TWO_PHASE} 측정 오류일 수도 있으니 ${SUCTION_CHECKS}도 확인하세요.`;
+    if (kind === 'glide-unknown') return `음수: 흡입관 온도가 이슬점 온도보다 낮습니다. 같은 압력의 기포점 온도가 표 범위 밖이라 2상 상태인지 측정 오류인지 구분할 수 없습니다. ${SUCTION_TWO_PHASE} ${SUCTION_CHECKS}도 다시 확인하세요.`;
+    return `음수: 흡입관 온도가 같은 압력의 기포점 온도보다도 낮습니다(글라이드 범위 밖). 증기나 기포점~이슬점 사이의 2상 냉매로는 설명되지 않으므로 ${SUCTION_CHECKS}를 다시 확인하세요.`;
+  }
+  if (kind === 'possible-two-phase') return `음수: 액관 온도가 기포점 온도보다 높고 같은 압력의 이슬점 온도 이하입니다(글라이드 범위 안). ${LIQUID_TWO_PHASE} 측정 오류일 수도 있으니 ${LIQUID_CHECKS}도 확인하세요.`;
+  if (kind === 'glide-unknown') return `음수: 액관 온도가 기포점 온도보다 높습니다. 같은 압력의 이슬점 온도가 표 범위 밖이라 2상 상태인지 측정 오류인지 구분할 수 없습니다. ${LIQUID_TWO_PHASE} ${LIQUID_CHECKS}도 다시 확인하세요.`;
+  return `음수: 액관 온도가 같은 압력의 이슬점 온도보다도 높습니다(글라이드 범위 밖). 액냉매나 기포점~이슬점 사이의 2상 냉매로는 설명되지 않으므로 ${LIQUID_CHECKS}를 다시 확인하세요.`;
+}
 
 // 음수 0(-0.0) 표시를 피하고 마이너스 기호를 읽기 쉬운 −로 바꾼다.
 function format(value: number, digits: number) {
@@ -98,10 +124,15 @@ export default function CalculatorPage() {
   const atmosphereOk = atmosphereKPa !== null && atmosphereKPa >= ATMOSPHERE_RANGE_KPA[0] && atmosphereKPa <= ATMOSPHERE_RANGE_KPA[1];
   const atmosphere = atmosphereOk ? atmosphereKPa : STANDARD_ATMOSPHERE_KPA;
   const result = calculateField({refrigerant, side, gauge, unit, pipeC, atmosphereKPa});
-  const [minC, minKPa] = data.points[0];
-  const [maxC, maxKPa] = data.points[data.points.length - 1];
+  const points = measurementPoints(data, side);
+  const [minC, minKPa] = points[0];
+  const [maxC, maxKPa] = points[points.length - 1];
+  const blend = data.kind === 'blend';
+  const basisLabel = !blend ? '포화' : side === 'suction' ? '이슬점' : '기포점';
+  // 단일 성분은 기존 '포화온도', 혼합 냉매는 측정 위치의 기준 온도(이슬점 온도·기포점 온도)
+  const basisTemperature = blend ? `${basisLabel} 온도` : '포화온도';
   const reverseC = parseDecimal(reverseText);
-  const reverse: InterpolationResult | null = reverseC === null ? null : saturationPressureKPa(data.points, reverseC);
+  const reverse = reverseC === null ? null : saturationPressuresKPa(data, reverseC);
 
   return <main className="hr-app calc-app">
     <header>
@@ -113,13 +144,14 @@ export default function CalculatorPage() {
       </nav>
     </header>
     <div className="calc-content">
-      <p className="calc-intro">게이지 압력으로 냉매의 포화온도를 구하고, 배관 온도와 비교해 과열도(흡입관) 또는 과냉도(액관)를 계산합니다. 입력하는 대로 바로 계산합니다.</p>
+      <p className="calc-intro">게이지 압력으로 냉매의 {blend ? '포화(기포점·이슬점) 온도' : '포화온도'}를 구하고, 배관 온도와 비교해 과열도(흡입관) 또는 과냉도(액관)를 계산합니다. 입력하는 대로 바로 계산합니다.</p>
 
       <section className="calc-panel" aria-labelledby="calc-setup-title">
         <h2 id="calc-setup-title">측정 조건</h2>
         <Segmented legend="냉매" name="refrigerant" value={refrigerant} onChange={value => updatePrefs({refrigerant: value})}
           options={REFRIGERANT_IDS.map(id => ({value: id, label: REFRIGERANTS[id].label}))}/>
-        <p className="calc-help">계산 범위: 포화온도 {format(minC, 0)}~{format(maxC, 0)} °C ({formatGauge(minKPa, unit, atmosphere)} ~ {formatGauge(maxKPa, unit, atmosphere)}). 범위 밖은 계산하지 않습니다. 혼합 냉매(R404A·R407C 등)는 기포점과 이슬점 압력이 달라 넣지 않았습니다.</p>
+        <p className="calc-help">계산 범위: {basisTemperature} {format(minC, 0)}~{format(maxC, 0)} °C ({formatGauge(minKPa, unit, atmosphere)} ~ {formatGauge(maxKPa, unit, atmosphere)}). 범위 밖은 계산하지 않습니다.
+          {blend && ' 혼합 냉매는 흡입 과열도에 이슬점, 액관 과냉도에 기포점을 사용합니다. 측정 위치에 따라 압력 범위가 달라집니다.'}</p>
         <p className="calc-help"><strong>안전:</strong> {SAFETY_NOTES[refrigerant]}</p>
         <Segmented legend="측정 위치" name="side" value={side} onChange={(value: MeasurementSide) => updatePrefs({side: value})}
           options={(Object.keys(MEASUREMENT_SIDES) as MeasurementSide[]).map(id => ({value: id, label: <>{MEASUREMENT_SIDES[id].label}<small>{MEASUREMENT_SIDES[id].quantity}</small></>}))}/>
@@ -148,22 +180,25 @@ export default function CalculatorPage() {
           invalid={pipeText.trim() !== '' && pipeC === null}
           help={side === 'suction' ? '압력을 잰 곳 가까운 흡입관(증발기 출구~압축기 흡입구)의 표면 온도입니다.' : '응축기 출구~드라이어 앞 액관의 표면 온도입니다. 토출관 온도를 넣으면 과냉도가 아닙니다.'}/>
         <div className="calc-result" aria-live="polite" aria-atomic="true">
-          {result.status === 'incomplete' && <p>압력을 입력하면 포화온도를 계산합니다.</p>}
+          {result.status === 'incomplete' && <p>압력을 입력하면 {basisTemperature}{blend && (side === 'suction' ? '(흡입 과열도 기준)' : '(액관 과냉도 기준)')}를 계산합니다.</p>}
           {result.status === 'invalid-atmosphere' && <p className="calc-warning">대기압을 {ATMOSPHERE_RANGE_KPA[0]}~{ATMOSPHERE_RANGE_KPA[1]} kPa(a) 사이로 입력하세요.</p>}
           {result.status === 'out-of-range' && <p className="calc-warning">
-            입력 압력(절대 {format(result.pressureKPaAbs, 1)} kPa)이 {data.id} 표 범위보다 {result.side === 'below' ? '낮습니다' : '높습니다'}
+            입력 압력(절대 {format(result.pressureKPaAbs, 1)} kPa)이 {data.id} {basisLabel} 표 범위보다 {result.side === 'below' ? '낮습니다' : '높습니다'}
             {' '}(한계 {formatGauge(result.limitKPaAbs, unit, atmosphere)} = {result.side === 'below' ? format(minC, 0) : format(maxC, 0)} °C). 표 밖은 외삽하지 않습니다. 냉매 종류, 압력 단위, 게이지압·절대압 구분을 확인하세요.
           </p>}
           {result.status === 'ok' && <>
             <dl className="calc-metrics">
-              <div><dt>포화온도</dt><dd>{format(result.saturation.value, 1)} <small>°C</small></dd></div>
+              <div><dt>{basisTemperature}</dt><dd>{format(result.saturation.value, 1)} <small>°C</small></dd></div>
               <div className="calc-main-metric"><dt>{quantity}</dt><dd>{result.differenceK === null ? <span className="calc-pending">온도 입력 필요</span> : <>{format(result.differenceK, 1)} <small>K</small></>}</dd></div>
               <div><dt>절대압력</dt><dd>{format(result.pressureKPaAbs, 1)} <small>kPa(a)</small></dd></div>
             </dl>
+            {result.basis !== 'pure' && <p className="calc-note">
+              {result.basis === 'dew' ? '이슬점 기준(흡입 과열도)' : '기포점 기준(액관 과냉도)'} · {result.glideK === null
+                ? '온도 글라이드는 반대쪽 온도가 표 범위 밖이라 계산할 수 없습니다. 외삽하지 않습니다.'
+                : `이 압력의 온도 글라이드 약 ${format(result.glideK, 1)} K (이슬점 − 기포점 온도)`}
+            </p>}
             {result.differenceK !== null && (result.differenceK < 0
-              ? <p className="calc-warning">{side === 'suction'
-                ? '음수: 흡입관 온도가 포화온도보다 낮습니다. 과열 증기에서는 생길 수 없으므로 온도 센서 접촉·보온, 압력과 온도의 측정 위치, 게이지 영점, 냉매 종류와 단위를 다시 확인하세요.'
-                : '음수: 액관 온도가 고압 포화온도보다 높습니다. 액냉매에서는 생길 수 없으므로 측정 위치(토출관이 아닌 액관인지), 센서 접촉, 게이지 영점, 냉매 종류와 단위를 다시 확인하세요.'}</p>
+              ? <p className="calc-warning">{negativeWarning(side, blend, negativeDifferenceKind(result.differenceK, result.basis, result.glideK))}</p>
               : <p className="calc-note">{side === 'suction'
                 ? '0에 가까우면 그 지점에 아직 액냉매가 섞인 포화 상태일 수 있습니다. '
                 : '0에 가까우면 그 지점의 냉매가 완전히 응축되지 않은 포화 상태일 수 있습니다. '}
@@ -174,32 +209,36 @@ export default function CalculatorPage() {
       </section>
 
       <section className="calc-panel" aria-labelledby="calc-reverse-title">
-        <h2 id="calc-reverse-title">온도 → 포화압력</h2>
-        <NumberField id="calc-reverse" label="포화온도" unit="°C" value={reverseText} onChange={setReverseText} placeholder="예: −10"
+        <h2 id="calc-reverse-title">{blend ? '온도 → 포화(기포점·이슬점) 압력' : '온도 → 포화압력'}</h2>
+        <NumberField id="calc-reverse" label={blend ? '포화(기포점·이슬점) 온도' : '포화온도'} unit="°C" value={reverseText} onChange={setReverseText} placeholder="예: −10"
           invalid={reverseText.trim() !== '' && reverseC === null}
-          help={`목표 증발·응축 온도에 해당하는 게이지 압력을 구합니다. ${data.id} 범위 ${format(minC, 0)}~${format(maxC, 0)} °C.`}/>
+          help={`목표 증발·응축 온도에 해당하는 게이지 압력을 구합니다. ${data.id} 범위 ${format(minC, 0)}~${format(maxC, 0)} °C.${blend
+            ? ' 혼합 냉매는 같은 온도의 기포점·이슬점 압력을 모두 보여 줍니다. 증발·응축 온도를 이슬점·기포점·중간점 중 무엇으로 보는지는 제조사마다 다르니 제조사 자료의 기준을 확인하세요.'
+            : ''}`}/>
         <div className="calc-result" aria-live="polite" aria-atomic="true">
-          {!reverse && <p>온도를 입력하면 {data.id} 포화압력을 계산합니다.</p>}
-          {reverse && reverse.status !== 'ok' && <p className="calc-warning">{data.id} 표 범위({format(minC, 0)}~{format(maxC, 0)} °C) 밖입니다. 외삽하지 않습니다.</p>}
-          {reverse?.status === 'ok' && <>
+          {!reverse && <p>온도를 입력하면 {data.id} {blend ? '기포점·이슬점 압력' : '포화압력'}을 계산합니다.</p>}
+          {reverse?.some(row => row.pressure.status !== 'ok') && <p className="calc-warning">{data.id} 표 범위({format(minC, 0)}~{format(maxC, 0)} °C) 밖입니다. 외삽하지 않습니다.</p>}
+          {reverse?.map(({basis, pressure}) => pressure.status === 'ok' && <div key={basis}>
+            {basis !== 'pure' && <h3 className="calc-note">{basis === 'bubble' ? '기포점 압력(액체: 과냉도 기준)' : '이슬점 압력(증기: 과열도 기준)'}</h3>}
             <dl className="calc-metrics">
-              <div className="calc-main-metric"><dt>게이지 압력</dt><dd>{format(absoluteKPaToGauge(reverse.value, unit, atmosphere), PRESSURE_UNITS[unit].digits)} <small>{unitLabel}</small></dd></div>
-              <div><dt>절대압력</dt><dd>{format(reverse.value, 1)} <small>kPa(a)</small></dd></div>
+              <div className="calc-main-metric"><dt>게이지 압력</dt><dd>{format(absoluteKPaToGauge(pressure.value, unit, atmosphere), PRESSURE_UNITS[unit].digits)} <small>{unitLabel}</small></dd></div>
+              <div><dt>절대압력</dt><dd>{format(pressure.value, 1)} <small>kPa(a)</small></dd></div>
             </dl>
-            {reverse.value < atmosphere && <p className="calc-note">대기압보다 낮은 압력(진공 영역)입니다.</p>}
-            <p className="calc-other-units">다른 단위: {PRESSURE_UNIT_IDS.filter(id => id !== unit).map(id => formatGauge(reverse.value, id, atmosphere)).join(' · ')}</p>
-          </>}
+            {pressure.value < atmosphere && <p className="calc-note">대기압보다 낮은 압력(진공 영역)입니다.</p>}
+            <p className="calc-other-units">다른 단위: {PRESSURE_UNIT_IDS.filter(id => id !== unit).map(id => formatGauge(pressure.value, id, atmosphere)).join(' · ')}</p>
+          </div>)}
         </div>
       </section>
 
       <section className="calc-panel calc-sources" aria-labelledby="calc-source-title">
         <h2 id="calc-source-title">계산 근거와 주의</h2>
         <ul>
-          <li>포화 데이터: {SATURATION_LIBRARY}로 만든 <code>{SATURATION_TABLE_PATH}</code>(−40~70 °C, 1 K 간격, 절대압)을 씁니다. 생성 스크립트 <code>generate_saturation.py</code>가 같은 폴더에 있어 다시 만들 수 있습니다. R290·R600a·R134a는 단일 성분 냉매라 기포점과 이슬점 압력이 같습니다.</li>
+          <li>포화 데이터: {SATURATION_LIBRARY}로 만든 <code>{SATURATION_TABLE_PATH}</code>(1 K 간격, 절대압)을 씁니다. 생성 스크립트 <code>generate_saturation.py</code>가 같은 폴더에 있어 다시 만들 수 있습니다. R290·R600a·R134a는 단일 성분이라 기포점과 이슬점 압력이 같고 범위는 −40~70 °C입니다. R410A·R404A·R407C는 Lemmon 의사순수 모델의 기포점·이슬점 열을 구분하며, 상한은 임계온도보다 5 K 이상 낮춘 66·67·70 °C(하한 −40 °C)입니다. R448A·R449A는 CoolProp 8.0.0에 없어 제외했습니다. <a href="https://coolprop.org/fluid_properties/PurePseudoPure.html">CoolProp 모델 설명</a></li>
           <li>표 점 사이는 로그 압력과 절대온도의 역수를 선형 보간합니다(CoolProp 직접 계산과의 차이 0.001 K 미만). 표 범위 밖은 외삽하지 않습니다.</li>
           <li>게이지·온도계의 오차, 배관 표면과 냉매의 온도 차이, 운전 안정 여부에 따라 결과가 달라집니다. 운전이 안정된 뒤 측정하세요.</li>
           <li><strong>안전:</strong> R290·R600a는 가연성 냉매(A3)입니다. 화기·점화원을 피하고 환기하며, 제조사 서비스 절차를 따르세요.</li>
           <li><strong>안전:</strong> {SAFETY_NOTES.R134a}</li>
+          <li>혼합 냉매의 안전 안내는 냉매 선택 아래에서 확인하세요. 근거: <a href="https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch29/F25_Ch29_si.aspx">ASHRAE 안전 등급</a>, <a href="https://www.chemours.com/en/-/media/files/freon/freon-410a-407c-push-bulletin.pdf">제조사 취급 안내</a>, <a href="https://www.bitzer.de/shared_media/html/db-200/en-GB/9830669998326027.html">제조사 액상 충전 안내</a>.</li>
         </ul>
       </section>
     </div>

@@ -6,7 +6,7 @@
 - [HR24B (`/`)](#hoshizaki-hr24b-)
 - [True T-19-HC (`/reference`)](#true-t-19-hc-reference)
 - 냉매 회로 고장 진단 연습 (`/diagnose`): 모세관 방식의 대표 고장 6가지. 고내 온도가 높은 기본 증상에서 시작해 압력·과열도·과냉도·전류·증발기 온도·현장 관찰 결과를 하나씩 확인하며 원인을 좁힙니다. 확인 없이도 답을 고를 수 있고 같은 항목은 한 번만 셉니다. 답한 뒤 핵심 단서와 답하기 전 확인 여부, 전체 결과, 2D 회로의 고장 위치, 현장 확인 순서·안전 안내·오답 비교를 제공합니다. 시나리오별 정오답과 답하기 전 확인 횟수는 이 브라우저의 localStorage에 저장하며, 누적 맞힌 수/푼 수·평균 확인 횟수와 기록 초기화를 지원합니다. 해설에서 공개한 결과는 횟수에 더하지 않습니다. 저장소를 사용할 수 없으면 이 탭에서만 집계합니다. 3D 배관 화면으로 이동할 수 있으며, 제조사 서비스 데이터가 아닌 교과서 수준의 연습입니다.
-- 과열도·과냉도 현장 계산기 (`/calculator`): 계산은 `lib/field-calculator.ts`에 있다. 냉매는 단일 성분인 R290·R600a·R134a다. 포화압력은 `public/calculator/saturation-table.json`(CoolProp 8.0.0, −40…70 °C, 1 K 간격, 절대압 Pa, 0.1 Pa 반올림)에서 읽는다. 단일 성분이라 기포점·이슬점 압력이 같고, 혼합 냉매(R404A·R407C 등)는 넣지 않았다. 점 사이는 ln(P)–1/T 선형 보간이며 CoolProp 직접 계산과의 최대 차이는 0.0002 K 수준이다(생성 스크립트가 0.05 K 미만인지 검사하고 기록). 표 범위 밖은 외삽하지 않고 한계값과 함께 범위 밖으로 표시한다. `tests/field-calculator.mjs`는 기존 CoolProp 표(`public/reference/cycle-table.json`, `public/design/r600a-cycle-grid.json`)와 공통 온도에서 0.06 Pa 이내로 일치하는지, R134a 0 °C 292.8 kPa(a)·40 °C 1016.6 kPa(a)를 검사한다. 안전 안내는 선택한 냉매별로 보여 준다(R290·R600a 가연성 A3, R134a 불연성 A1이지만 고압·환기·회수 규칙). 게이지압은 kPa·MPa·bar·psig·kgf/cm²를 정의상 정확한 계수로 환산하고, 절대압 = 게이지압 + 대기압(기본 101.325 kPa, 50~110 kPa에서 변경 가능)이다. 과열도 = 흡입관 온도 − 포화온도, 과냉도 = 포화온도 − 액관 온도. 저장소에 기기별 정상 범위가 없으므로 높음·정상·낮음은 판정하지 않고 서비스 데이터와 비교하도록 안내하며, 음수일 때만 측정 확인을 안내한다. 숫자 키패드(`inputMode="decimal"`)에 마이너스가 없는 휴대폰을 위해 ± 버튼이 있고, 쉼표 소수점과 −도 받는다. 마지막 냉매·측정 위치·단위는 `refrigerator-field-calculator` 키에 마운트 후 저장하며 측정값은 저장하지 않는다. 저장소를 쓸 수 없어도 계산은 된다. three.js를 불러오지 않으며, 진단 연습 화면의 기초 설명·현장 확인 순서와 서로 연결된다.
+- 과열도·과냉도 현장 계산기 (`/calculator`): 계산은 `lib/field-calculator.ts`에 있다. 냉매는 단일 성분 R290·R600a·R134a와 혼합 냉매 R410A·R404A·R407C다. 포화압력은 `public/calculator/saturation-table.json`(CoolProp 8.0.0, 냉매별 온도 범위, 1 K 간격, 절대압 Pa, 0.1 Pa 반올림)에서 읽는다. 단일 성분은 기포점·이슬점 압력이 같다. 혼합 냉매는 두 열을 나누고 흡입 과열도에 이슬점, 액관 과냉도에 기포점을 쓴다. 같은 압력에서의 온도 글라이드(이슬점 − 기포점 온도, K)를 표시하고, 역계산은 두 압력을 모두 보여 준다. 반대 열만 범위 밖이면 주 계산은 유지하고 글라이드는 계산 불가로 표시한다. 점 사이는 ln(P)–1/T 선형 보간이며 CoolProp 직접 계산과의 최대 차이는 모든 열에서 0.001 K 미만이다(생성 스크립트가 0.05 K 미만인지 검사하고 기록). 표 범위 밖은 외삽하지 않고 한계값과 함께 범위 밖으로 표시한다. `tests/field-calculator.mjs`는 기존 CoolProp 표(`public/reference/cycle-table.json`, `public/design/r600a-cycle-grid.json`)와 공통 온도에서 0.06 Pa 이내로 일치하는지, R134a 0 °C 292.8 kPa(a)·40 °C 1016.6 kPa(a)를 검사한다. 안전 안내는 선택한 냉매별로 보여 준다(R290·R600a 가연성 A3, R134a와 혼합 냉매 3종은 불연성 A1이지만 고압·산소 결핍·환기·열분해·회수 규칙, R410A 전용 장비와 혼합 냉매 액상 충전 권장). 게이지압은 kPa·MPa·bar·psig·kgf/cm²를 정의상 정확한 계수로 환산하고, 절대압 = 게이지압 + 대기압(기본 101.325 kPa, 50~110 kPa에서 변경 가능)이다. 과열도 = 흡입관 온도 − 이슬점 온도, 과냉도 = 기포점 온도 − 액관 온도(단일 성분은 둘 다 포화온도). 저장소에 기기별 정상 범위가 없으므로 높음·정상·낮음은 판정하지 않고 서비스 데이터와 비교하도록 안내하며, 음수일 때만 측정 확인을 안내한다. 숫자 키패드(`inputMode="decimal"`)에 마이너스가 없는 휴대폰을 위해 ± 버튼이 있고, 쉼표 소수점과 −도 받는다. 마지막 냉매·측정 위치·단위는 `refrigerator-field-calculator` 키에 마운트 후 저장하며 측정값은 저장하지 않는다. 저장소를 쓸 수 없어도 계산은 된다. three.js를 불러오지 않으며, 진단 연습 화면의 기초 설명·현장 확인 순서와 서로 연결된다.
 - [MONO 120 (`/lab`)](#mono-120-lab)
 - [제조사 문서](#제조사-문서-저장소-미포함)
 - [배포](#github-pages)
@@ -99,7 +99,7 @@ CAD 가져오기(`generator/cad.mjs`)는 STEP·IGES를 occt-import-js(OpenCascad
 
 `public/reference/`: 재구성 STEP/FCStd, 메쉬, 치수·간섭 검증, 출처와 추정 목록, R290 물성표. `generate_true_cad.py`는 FreeCAD Python, `generate_cycle.py`는 CoolProp이 설치된 Python에서 실행한다.
 
-`public/calculator/`: 현장 계산기(`/calculator`)의 포화압력 표 `saturation-table.json`과 생성 스크립트 `generate_saturation.py`. CoolProp 버전을 8.0.0으로 고정했고(다른 버전이면 스크립트가 멈춘다), 저장소 루트에서 다음처럼 다시 만든다. CoolProp은 npm 의존성이 아니다.
+`public/calculator/`: 현장 계산기(`/calculator`)의 포화압력 표 `saturation-table.json`과 생성 스크립트 `generate_saturation.py`. CoolProp 버전을 8.0.0으로 고정했고(다른 버전이면 스크립트가 멈춘다), 저장소 루트에서 다음처럼 다시 만든다. CoolProp은 npm 의존성이 아니며 이미 venv가 있으면 마지막 명령만 실행한다.
 
 ```bash
 python3 -m venv /tmp/sat-venv
@@ -107,7 +107,24 @@ python3 -m venv /tmp/sat-venv
 /tmp/sat-venv/bin/python refrigerator/public/calculator/generate_saturation.py
 ```
 
-표에는 CoolProp 버전, 유체 이름(CoolProp 이름 포함), 단위(°C, 절대압 Pa), 생성 날짜, 냉매별 ASHRAE 안전 등급·임계온도·검사한 최대 보간 오차가 들어 있다. 다시 만든 뒤 `npm test`로 기존 표와의 일치를 확인한다.
+표에는 CoolProp 버전, 유체 이름(CoolProp 이름 포함), 단위(°C, 절대압 Pa), 생성 날짜, `kind`(pure/blend), 냉매별 `temperatureC` 범위·ASHRAE 안전 등급·임계온도·최대 보간 오차가 들어 있다. 최상위 `temperatureC`는 전체 한계이고 계산에는 각 유체의 범위를 쓴다. 단일 성분의 기존 `pressurePa`는 그대로 유지한다. 혼합 냉매의 `bubblePressurePa`·`dewPressurePa`와 열별 `interpolationErrorK`는 각각 Q=0·Q=1 직접 계산에서 얻는다. 출처는 [CoolProp 유체·모델 문서](https://coolprop.org/fluid_properties/PurePseudoPure.html)의 Lemmon 의사순수(pseudo-pure) 모델이다.
+
+| 냉매 | 종류 | ASHRAE 안전 등급 | 온도 범위(1 K 간격) | 최대 보간 오차(K, 두 열 중 큰 값) |
+|---|---|---|---|---|
+| R290 | 단일 성분 | A3 | −40~70 °C | 0.00013 |
+| R600a | 단일 성분 | A3 | −40~70 °C | 0.00018 |
+| R134a | 단일 성분 | A1 | −40~70 °C | 0.00020 |
+| R410A | 혼합(근사 공비) | A1 | −40~66 °C | 0.00040254 |
+| R404A | 혼합 | A1 | −40~67 °C | 0.00061451 |
+| R407C | 혼합 | A1 | −40~70 °C | 0.00034254 |
+
+혼합 냉매 상한은 `min(70, floor(Tcrit[°C] − 5 K))`다. CoolProp 임계온도는 각각 71.344·72.12·86.195 °C이므로 최소 5 K 여유가 있다. R448A/R449A는 CoolProp 8.0.0에 없어 제외한다. HEOS 혼합 규칙으로 임의 합성하지 않는다. 스크립트 docstring과 JSON `excludedFluids`에도 기록한다.
+
+생성기는 각 열의 단조 증가, 기포점 압력 ≥ 이슬점 압력(지오트로픽 R404A·R407C는 엄격히 >, R410A도 이 표의 모든 점에서 >), 임계 여유를 검사한다. 모든 1 K 구간의 중간 9점(0.1 K 간격)을 PropsSI 직접값과 비교해 ln(P)–1/T 보간 온도 오차가 0.05 K 미만인지 확인하고 최대값을 기록한다. 위 값은 모델 자체의 물성 정확도가 아닌 표 보간 오차다.
+
+다시 만든 뒤 `npm test`로 메타데이터·열별 단조성·기포점/이슬점 왕복·미외삽·선택값 version 1 호환성을 검사한다. 기존 R290·R600a 표와의 압력 비교는 ±0.06 Pa, 혼합 3종의 −20·0·40·60 °C CoolProp 직접 압력 스폿 체크도 ±0.06 Pa(0.1 Pa 반올림 여유)다. 비정수 온도 직접값과 보간 결과는 ±0.001 K로 확인한다. R407C 800 kPa(a)의 직접값은 기포점 10.99852 °C·이슬점 16.84664 °C로, 과열도/과냉도 기준과 글라이드 약 5.84812 K를 확인한다(온도 ±0.001 K, 글라이드 ±0.002 K). 2 K 간격으로 표 가운데 점을 재현하는 검사는 단일 성분 ±0.002 K, 혼합 ±0.003 K다.
+
+안전 등급은 [ASHRAE 냉매 표](https://handbook.ashrae.org/Handbooks/F25/SI/F25_Ch29/F25_Ch29_si.aspx)를 따른다. 고압·환기·열분해·전용 장비 안내의 근거는 [Chemours R407C·R410A 취급 안내](https://www.chemours.com/en/-/media/files/freon/freon-410a-407c-push-bulletin.pdf?rev=e72fcf56cfe84370a5f19799b32833d1), 혼합 냉매 액상 충전의 일반 권장은 [BITZER 충전 안내](https://www.bitzer.de/shared_media/html/db-200/en-GB/9830669998326027.html)다. 제조사 절차·현지 법규를 우선하며 확인되지 않은 법 조문·규제 수치는 싣지 않는다. 제조사 PDF·그림은 저장소에 포함하지 않는다.
 
 ## MONO 120 (`/lab`)
 
@@ -165,7 +182,7 @@ npm run build
 | `tests/cad.mjs` | CAD: STEP 읽기와 회전 배치, CAD 부품 포트 사이 자동 배관과 이동 후 재배관, 클릭 포트 좌표 변환 왕복, 파일 누락 오류 |
 | `tests/models.mjs` | 생성기: 모든 사양서 생성·검사 통과, 커밋된 결과가 최신인지, T-19-HC 하부 배치, 자동 경로와 부품 이동 시 배관 추종, 잘못된 사양서 8종 거부 |
 | `tests/diagnosis.mjs` | 고장 진단 연습: 시나리오 증상·단서·확인 항목·핵심 단서, 회로 위치·현장 확인 순서, 정오답·오답 비교, 학습 기록 복원·집계 |
-| `tests/field-calculator.mjs` | 현장 계산기: 생성 포화표 메타데이터와 기존 CoolProp 표 일치, R134a 공개값, 단조성·표 점 왕복·보간 정확도, 범위 밖 미외삽, 단위·대기압 환산, 과열도·과냉도 부호, 입력 해석, 선택값 저장 |
+| `tests/field-calculator.mjs` | 현장 계산기: 생성 포화표 메타데이터와 기존 CoolProp 표 일치, R134a·혼합 3종의 CoolProp 직접값, 두 열 단조성·왕복·보간 정확도·임계 여유, 냉매/열별 범위 밖 미외삽, 단위·대기압 환산, 이슬점 과열도·기포점 과냉도·글라이드, 입력 해석, 이전/새 선택값 version 1 저장·복원 |
 
 ## 출처
 

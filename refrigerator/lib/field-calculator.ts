@@ -2,16 +2,17 @@
 //
 // 포화 데이터 출처: public/calculator/saturation-table.json
 // - public/calculator/generate_saturation.py가 CoolProp 8.0.0의 PropsSI('P','T',T,'Q',0,fluid)로 만든다.
-//   −40…70 °C, 1 K 간격, 절대압 Pa(0.1 Pa 반올림). R290·R600a·R134a는 단일 성분이라 기포점(Q=0)과
-//   이슬점(Q=1) 압력이 같다(생성 스크립트가 확인). 혼합 냉매(R404A 등)는 넣지 않았다.
+//   1 K 간격, 절대압 Pa(0.1 Pa 반올림). R290·R600a·R134a는 단일 성분이라 기포점(Q=0)과
+//   이슬점(Q=1) 압력이 같다. R410A·R404A·R407C는 Lemmon 의사순수 모델의 두 열을 따로 쓴다.
+//   단일 성분은 −40…70 °C, 혼합 냉매는 −40…min(70, floor(Tcrit − 5 K)) °C다.
 // - tests/field-calculator.mjs가 저장소의 기존 CoolProp 표(public/reference/cycle-table.json,
 //   public/design/r600a-cycle-grid.json)와 공통 온도에서 일치하는지 검사한다.
 //
 // 표 점 사이는 ln(P)와 1/T(K)를 선형 보간한다(클라우지우스-클라페이롱 형태). 1 K 간격에서 CoolProp 직접 계산과의
-// 최대 오차는 0.0002 K 수준이다(생성 스크립트가 기록·검사). 표 범위 밖은 외삽하지 않고 범위 밖으로 표시한다.
+// 최대 오차는 0.001 K 미만이다(생성 스크립트가 각 열을 기록·검사). 표 범위 밖은 외삽하지 않는다.
 import saturationTable from '../public/calculator/saturation-table.json' with {type: 'json'};
 
-export type RefrigerantId = 'R290' | 'R600a' | 'R134a';
+export type RefrigerantId = 'R290' | 'R600a' | 'R134a' | 'R410A' | 'R404A' | 'R407C';
 /** [포화온도 °C, 절대 포화압력 kPa(a)] — 온도 오름차순 */
 export type SaturationPoint = readonly [temperatureC: number, pressureKPaAbs: number];
 export type RefrigerantData = {
@@ -19,22 +20,33 @@ export type RefrigerantData = {
   readonly label: string;
   /** ASHRAE 34 안전 등급 (A1 불연, A3 고가연) */
   readonly safetyGroup: string;
-  readonly points: readonly SaturationPoint[];
+  readonly temperatureC: {readonly min: number; readonly max: number; readonly step: number};
   readonly source: string;
-};
+} & (
+  | {readonly kind: 'pure'; readonly points: readonly SaturationPoint[]}
+  | {readonly kind: 'blend'; readonly bubblePoints: readonly SaturationPoint[]; readonly dewPoints: readonly SaturationPoint[]}
+);
 
 export const SATURATION_TABLE_PATH = 'public/calculator/saturation-table.json';
 export const SATURATION_LIBRARY = saturationTable.library;
-const REFRIGERANT_ORDER: readonly RefrigerantId[] = ['R290', 'R600a', 'R134a'];
+const REFRIGERANT_ORDER: readonly RefrigerantId[] = ['R290', 'R600a', 'R134a', 'R410A', 'R404A', 'R407C'];
 
 function buildRefrigerants(): Record<RefrigerantId, RefrigerantData> {
-  const {min, step} = saturationTable.temperatureC;
   const result: Partial<Record<RefrigerantId, RefrigerantData>> = {};
   for (const id of REFRIGERANT_ORDER) {
     const fluid = saturationTable.fluids.find(item => item.id === id);
     if (!fluid) throw new Error(`포화표에 ${id}가 없습니다`);
-    const points = fluid.pressurePa.map((pa, i): SaturationPoint => [min + i * step, pa / 1000]);
-    result[id] = {id, label: fluid.label, safetyGroup: fluid.ashraeSafetyGroup, points, source: `${SATURATION_TABLE_PATH} · ${saturationTable.library}`};
+    const {min, step} = fluid.temperatureC;
+    const toPoints = (pressures: readonly number[]) => pressures.map((pa, i): SaturationPoint => [min + i * step, pa / 1000]);
+    const common = {id, label: fluid.label, safetyGroup: fluid.ashraeSafetyGroup, temperatureC: fluid.temperatureC,
+      source: `${SATURATION_TABLE_PATH} · ${saturationTable.library}`};
+    if (fluid.kind === 'pure' && fluid.pressurePa) {
+      result[id] = {...common, kind: 'pure', points: toPoints(fluid.pressurePa)};
+    } else if (fluid.kind === 'blend' && fluid.bubblePressurePa && fluid.dewPressurePa) {
+      result[id] = {...common, kind: 'blend', bubblePoints: toPoints(fluid.bubblePressurePa), dewPoints: toPoints(fluid.dewPressurePa)};
+    } else {
+      throw new Error(`포화표의 ${id} 압력 열이 올바르지 않습니다`);
+    }
   }
   return result as Record<RefrigerantId, RefrigerantData>;
 }
@@ -133,6 +145,21 @@ export const superheatK = (pipeC: number, saturationC: number) => pipeC - satura
 export const subcoolingK = (pipeC: number, saturationC: number) => saturationC - pipeC;
 
 export type MeasurementSide = 'suction' | 'liquid';
+export type SaturationBasis = 'pure' | 'dew' | 'bubble';
+
+/** 흡입 과열도는 이슬점, 액관 과냉도는 기포점 열과 그 압력 범위를 쓴다. */
+export function measurementPoints(data: RefrigerantData, side: MeasurementSide): readonly SaturationPoint[] {
+  return data.kind === 'pure' ? data.points : side === 'suction' ? data.dewPoints : data.bubblePoints;
+}
+
+/** 역계산은 혼합 냉매의 기포점·이슬점 압력을 모두 돌려준다. 각 열은 외삽하지 않는다. */
+export function saturationPressuresKPa(data: RefrigerantData, temperatureC: number): readonly {basis: SaturationBasis; pressure: InterpolationResult}[] {
+  if (data.kind === 'pure') return [{basis: 'pure', pressure: saturationPressureKPa(data.points, temperatureC)}];
+  return [
+    {basis: 'bubble', pressure: saturationPressureKPa(data.bubblePoints, temperatureC)},
+    {basis: 'dew', pressure: saturationPressureKPa(data.dewPoints, temperatureC)},
+  ];
+}
 export const MEASUREMENT_SIDES: Readonly<Record<MeasurementSide, {label: string; quantity: string}>> = {
   suction: {label: '저압 · 흡입관', quantity: '과열도'},
   liquid: {label: '고압 · 액관', quantity: '과냉도'},
@@ -146,6 +173,9 @@ export type FieldCalculation =
       readonly status: 'ok';
       readonly pressureKPaAbs: number;
       readonly saturation: Extract<InterpolationResult, {status: 'ok'}>;
+      readonly basis: SaturationBasis;
+      /** 같은 압력에서 이슬점 − 기포점 온도(K). 반대쪽 열의 범위 밖이면 null(외삽 금지). 단일 성분은 0. */
+      readonly glideK: number | null;
       /** 온도를 입력하지 않았으면 null */
       readonly differenceK: number | null;
     };
@@ -163,11 +193,36 @@ export function calculateField(input: {
   if (atmosphereKPa === null || atmosphereKPa < ATMOSPHERE_RANGE_KPA[0] || atmosphereKPa > ATMOSPHERE_RANGE_KPA[1]) return {status: 'invalid-atmosphere'};
   if (input.gauge === null) return {status: 'incomplete'};
   const pressureKPaAbs = gaugeToAbsoluteKPa(input.gauge, input.unit, atmosphereKPa);
-  const saturation = saturationTemperatureC(REFRIGERANTS[input.refrigerant].points, pressureKPaAbs);
+  const data = REFRIGERANTS[input.refrigerant];
+  const basis: SaturationBasis = data.kind === 'pure' ? 'pure' : input.side === 'suction' ? 'dew' : 'bubble';
+  const saturation = saturationTemperatureC(measurementPoints(data, input.side), pressureKPaAbs);
   if (saturation.status !== 'ok') return {status: 'out-of-range', side: saturation.status, pressureKPaAbs, limitKPaAbs: saturation.limit};
   const differenceK = input.pipeC === null ? null
     : input.side === 'suction' ? superheatK(input.pipeC, saturation.value) : subcoolingK(input.pipeC, saturation.value);
-  return {status: 'ok', pressureKPaAbs, saturation, differenceK};
+  let glideK: number | null = 0;
+  if (data.kind === 'blend') {
+    const bubble = saturationTemperatureC(data.bubblePoints, pressureKPaAbs);
+    const dew = saturationTemperatureC(data.dewPoints, pressureKPaAbs);
+    glideK = bubble.status === 'ok' && dew.status === 'ok' ? dew.value - bubble.value : null;
+  }
+  return {status: 'ok', pressureKPaAbs, saturation, basis, glideK, differenceK};
+}
+
+/**
+ * 과열도·과냉도가 음수일 때 화면 안내의 종류.
+ * - 'none': 값이 없거나 0 이상
+ * - 'measurement-error': 단일 성분이거나, 혼합 냉매에서 글라이드 범위(기포점~이슬점) 밖이라 2상으로도 설명되지 않음
+ * - 'possible-two-phase': 혼합 냉매에서 −글라이드 이상 0 미만. 배관 온도가 기포점~이슬점 사이라 2상일 수 있음(측정 오류도 가능)
+ * - 'glide-unknown': 혼합 냉매인데 반대쪽 온도가 표 범위 밖이라 글라이드를 모름. 두 가능성을 모두 안내한다.
+ * 흡입: 과열도 = 배관 − 이슬점이 [−글라이드, 0)이면 배관 온도가 [기포점, 이슬점).
+ * 액관: 과냉도 = 기포점 − 배관이 [−글라이드, 0)이면 배관 온도가 (기포점, 이슬점].
+ */
+export type NegativeDifferenceKind = 'none' | 'measurement-error' | 'possible-two-phase' | 'glide-unknown';
+export function negativeDifferenceKind(differenceK: number | null, basis: SaturationBasis, glideK: number | null): NegativeDifferenceKind {
+  if (differenceK === null || !(differenceK < 0)) return 'none';
+  if (basis === 'pure') return 'measurement-error';
+  if (glideK === null) return 'glide-unknown';
+  return differenceK >= -glideK ? 'possible-two-phase' : 'measurement-error';
 }
 
 // 저장소에 남기는 마지막 선택값. 측정값은 저장하지 않는다.
