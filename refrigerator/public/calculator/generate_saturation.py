@@ -3,7 +3,8 @@
 Requires CoolProp 8.0.0 (Python, not an npm dependency):
     python3 -m venv /tmp/sat-venv && /tmp/sat-venv/bin/pip install CoolProp==8.0.0
     /tmp/sat-venv/bin/python refrigerator/public/calculator/generate_saturation.py
-같은 폴더에 saturation-table.json을 쓴다. 혼합 냉매는 CoolProp의 Lemmon
+같은 폴더에 saturation-table.json을 쓴다. 단일 성분은 R290·R600a·R134a·R32·R22이며
+모든 냉매에 같은 범위 규칙(−40 °C~min(70, floor(Tcrit − 5 K)), 1 K)을 쓴다. 혼합 냉매는 CoolProp의 Lemmon
 의사순수(pseudo-pure) 모델로 기포점(Q=0)·이슬점(Q=1)을 따로 계산한다.
 R448A/R449A는 CoolProp 8.0.0에 없어 제외한다. HEOS 혼합물로 임의 합성하지 않는다.
 """
@@ -18,16 +19,23 @@ FLUIDS = [
     ('R290', 'Propane', 'R290 (프로판)', 'A3'),
     ('R600a', 'IsoButane', 'R600a (이소부탄)', 'A3'),
     ('R134a', 'R134a', 'R134a', 'A1'),
+    # 국내 시스템에어컨: R32(신형, A2L 약가연), R22(구형 기기 정비, HCFC)
+    ('R32', 'R32', 'R32', 'A2L'),
+    ('R22', 'R22', 'R22', 'A1'),
 ]
 BLENDS = [('R410A', 'R410A', 'R410A', 'A1'),
           ('R404A', 'R404A', 'R404A', 'A1'),
           ('R407C', 'R407C', 'R407C', 'A1')]
 T_MIN, T_MAX, STEP = -40, 70, 1
 K = 273.15
-temps = list(range(T_MIN, T_MAX + 1, STEP))
 fluids = []
 for ident, coolprop_name, label, safety in FLUIDS:
-    assert PropsSI('Tcrit', coolprop_name) - K > T_MAX + 10, ident
+    # 혼합 냉매와 같은 범위 규칙. R290·R600a·R134a·R22는 상한 70 °C 그대로이고,
+    # R32(임계온도 약 78 °C)도 floor(Tcrit − 5) ≥ 70이라 70 °C다.
+    critical_c = PropsSI('Tcrit', coolprop_name) - K
+    t_max = min(T_MAX, math.floor(critical_c - 5))
+    assert critical_c - t_max >= 5, (ident, '임계온도 여유')
+    temps = list(range(T_MIN, t_max + 1, STEP))
     pressures = []
     for t in temps:
         bubble = PropsSI('P', 'T', t + K, 'Q', 0, coolprop_name)
@@ -46,8 +54,8 @@ for ident, coolprop_name, label, safety in FLUIDS:
             worst = max(worst, abs(1 / inv - K - t))
     assert worst < 0.05, (ident, worst)
     fluids.append(dict(id=ident, kind='pure', coolPropName=coolprop_name, label=label, ashraeSafetyGroup=safety,
-                       temperatureC=dict(min=T_MIN, max=T_MAX, step=STEP),
-                       criticalTemperatureC=round(PropsSI('Tcrit', coolprop_name) - K, 3),
+                       temperatureC=dict(min=T_MIN, max=t_max, step=STEP),
+                       criticalTemperatureC=round(critical_c, 3),
                        maxInterpolationErrorK=float(f'{worst:.2g}'), pressurePa=pressures))
 
 # 단일 성분의 생성·검사 경로는 유지하고 혼합 냉매의 두 열을 별도로 검증한다.
@@ -94,6 +102,7 @@ out = dict(
     interpolation='ln(P) linear in 1/T(K) between adjacent points; no extrapolation',
     temperatureC=dict(min=T_MIN, max=T_MAX, step=STEP),
     blendTemperatureRule='하한 −40 °C, 1 K 간격; 상한 min(70, floor(Tcrit[°C] − 5 K)); 냉매별 temperatureC 적용',
+    pureTemperatureRule='단일 성분도 같은 규칙(하한 −40 °C, 1 K 간격, 상한 min(70, floor(Tcrit[°C] − 5 K)))',
     excludedFluids=dict(ids=['R448A', 'R449A'], reason='CoolProp 8.0.0에 없어 제외. HEOS 혼합물로 임의 합성하지 않음.'),
     sources=['https://coolprop.org/fluid_properties/PurePseudoPure.html',
              'https://coolprop.org/coolprop/HighLevelAPI.html'],
