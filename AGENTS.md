@@ -24,7 +24,7 @@ refrigerator/          웹앱 (모든 npm 명령은 이 폴더에서 실행)
 ├─ lib/                시뮬레이션 계산, CAD·저장소 보조 코드
 ├─ public/             3D 모델·배관·물성표 데이터
 └─ tests/              계산·모델 검증 (Node 스크립트)
-.github/workflows/     pages.yml(main push 시 배포), pr-ci.yml(PR 검사)
+.github/workflows/     pages.yml(main push 시 테스트·빌드 후 배포)
 HANDOFF.md             작업 인계 메모
 ```
 
@@ -36,7 +36,7 @@ Node.js **22.13 이상**이 필요합니다.
 cd refrigerator && npm ci && npm test && npm run lint && npx tsc --noEmit && npm run build
 ```
 
-push하기 전에 위 명령이 모두 통과해야 합니다. PR을 올리면 같은 검사를 PR CI(`.github/workflows/pr-ci.yml`)도 실행합니다.
+push하기 전에 위 명령이 모두 통과해야 합니다. GitHub에는 따로 검사하는 CI가 없습니다(배포 워크플로는 테스트·빌드만 다시 돌립니다).
 
 ## 작업 규칙
 
